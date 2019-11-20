@@ -13,6 +13,7 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Validator\Constraints\NotBlank;
+use Symfony\Component\Validator\Constraints\NotNull;
 use Symfony\Component\Validator\Constraints\Type;
 
 /**
@@ -38,7 +39,7 @@ abstract class ApiPlatformTestCase extends WebTestCase
         }
 
         if (!$this->faker) {
-            $this->faker = Factory::create();
+            $this->faker = Factory::create('de_DE');
         }
 
         if (!self::$container) {
@@ -217,6 +218,12 @@ abstract class ApiPlatformTestCase extends WebTestCase
                     && empty($propertyValue)
                 ) {
                     /** @var NotBlank $propertyAnnotation */
+                    $expectedMessage = $propertyAnnotation->message;
+                    $calculatedViolationCount++;
+                } elseif ($propertyAnnotation instanceof NotNull
+                    && $propertyValue === null
+                ) {
+                    /** @var NotNull $propertyAnnotation */
                     $expectedMessage = $propertyAnnotation->message;
                     $calculatedViolationCount++;
                 } elseif ($propertyAnnotation instanceof Type
