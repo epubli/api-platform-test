@@ -6,7 +6,6 @@ use Doctrine\Common\Annotations\AnnotationException;
 use Doctrine\Common\Annotations\AnnotationReader;
 use Faker\Factory;
 use Faker\Generator;
-use l0wskilled\AliceBundle\PhpUnit\RefreshMongoDbTrait;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionProperty;
