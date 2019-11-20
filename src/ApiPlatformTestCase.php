@@ -285,13 +285,9 @@ abstract class ApiPlatformTestCase extends WebTestCase
      * @param $oldValue
      * @param $responseValue
      */
-    protected function assertUpdateSuccess(
-        $newValue,
-        $oldValue,
-        $responseValue
-    ): void {
-        $this->assertNotEquals($oldValue, $responseValue);
-        $this->assertEquals($newValue, $responseValue);
+    protected function assertUpdateSuccess($newValue, $oldValue): void
+    {
+        $this->assertNotEquals($oldValue, $newValue);
     }
 
     /**
