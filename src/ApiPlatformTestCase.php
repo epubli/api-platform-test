@@ -22,8 +22,6 @@ use Symfony\Component\Validator\Constraints\Type;
  */
 abstract class ApiPlatformTestCase extends WebTestCase
 {
-    use RefreshMongoDbTrait;
-
     /**
      * @var KernelBrowser
      */
@@ -100,11 +98,8 @@ abstract class ApiPlatformTestCase extends WebTestCase
      *
      * @return mixed
      */
-    protected function findOne($class, $criteria = [])
-    {
-        $manager = self::$container->get('doctrine_mongodb.odm.document_manager');
-        return $manager->getRepository($class)->findOneBy($criteria);
-    }
+    abstract protected function findOne($class, $criteria = []);
+
 
     /**
      * @param object $transmittedData
