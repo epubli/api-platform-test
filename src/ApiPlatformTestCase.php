@@ -25,23 +25,26 @@ abstract class ApiPlatformTestCase extends WebTestCase
     /**
      * @var KernelBrowser
      */
-    protected $kernelBrowser;
+    protected static $kernelBrowser;
 
     /**
      * @var Generator
      */
-    protected $faker;
+    protected static $faker;
 
     public function setUp(): void
     {
-        if (!$this->kernelBrowser) {
-            $this->kernelBrowser = self::createClient();
-        }
+        $this->init();
+    }
 
-        if (!$this->faker) {
-            $this->faker = Factory::create('de_DE');
+    public static function init(): void
+    {
+        if (!self::$kernelBrowser) {
+            self::$kernelBrowser = self::createClient();
         }
-
+        if (!self::$faker) {
+            self::$faker = Factory::create('de_DE');
+        }
         if (!self::$container) {
             self::$kernel = self::bootKernel();
             self::$container = self::$kernel->getContainer();
@@ -79,7 +82,7 @@ abstract class ApiPlatformTestCase extends WebTestCase
         // POST request doesn't follow 301, symfony creates 301 for trailing slash routes
         $uri = rtrim($uri, '/');
 
-        $this->kernelBrowser->request(
+        self::$kernelBrowser->request(
             $method,
             $uri,
             $parameters,
@@ -89,7 +92,7 @@ abstract class ApiPlatformTestCase extends WebTestCase
             $changeHistory
         );
 
-        return $this->kernelBrowser->getResponse();
+        return self::$kernelBrowser->getResponse();
     }
 
     /**
@@ -157,7 +160,7 @@ abstract class ApiPlatformTestCase extends WebTestCase
      */
     protected function lastResponse(): Response
     {
-        return $this->kernelBrowser->getResponse();
+        return self::$kernelBrowser->getResponse();
     }
 
     /**
@@ -315,7 +318,7 @@ abstract class ApiPlatformTestCase extends WebTestCase
 
     abstract protected function testUpdateAResource(): void;
 
-    abstract protected function getDemoDocument(): object;
+    abstract protected function getDemoDocument();
 
     abstract protected function testThrowErrorWhenDataAreInvalid(): void;
 
