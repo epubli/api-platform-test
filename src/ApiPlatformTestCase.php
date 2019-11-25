@@ -4,6 +4,7 @@ namespace Epubli\ApiPlatform\TestBundle;
 
 use Doctrine\Common\Annotations\AnnotationException;
 use Doctrine\Common\Annotations\AnnotationReader;
+use Doctrine\Common\Collections\ArrayCollection;
 use Faker\Factory;
 use Faker\Generator;
 use ReflectionClass;
@@ -136,7 +137,11 @@ abstract class ApiPlatformTestCase extends WebTestCase
                 $this->{$getTypeMapping[$dataType]}($json[$property]);
             }
             if ($transmittedData->{$property} !== null) {
-                $this->assertEquals($transmittedData->{$property}, $json[$property]);
+                if ($transmittedData->{$property} instanceof ArrayCollection) {
+                    $this->assertEquals($transmittedData->{$property}->toArray(), $json[$property]);
+                } else {
+                    $this->assertEquals($transmittedData->{$property}, $json[$property]);
+                }
             }
         }
     }
