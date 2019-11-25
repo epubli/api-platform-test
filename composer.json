@@ -18,6 +18,10 @@
         "symfony/validator": "^4.3",
         "symfony/phpunit-bridge": ">=4.3"
     },
+    "suggest": {
+        "doctrine/doctrine-bundle": "to use the ORM extensions",
+        "doctrine/mongodb-odm-bundle": "to use the MongoDB ODM extensions"
+    },
     "autoload": {
         "psr-4": {
             "Epubli\\ApiPlatform\\TestBundle\\": "src/"

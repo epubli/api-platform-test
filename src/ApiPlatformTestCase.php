@@ -101,7 +101,7 @@ abstract class ApiPlatformTestCase extends WebTestCase
      *
      * @return mixed
      */
-    abstract protected function findOne($class, $criteria = []);
+    abstract protected function findOne(string $class, array $criteria = []);
 
 
     /**
