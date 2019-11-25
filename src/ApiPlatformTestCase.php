@@ -39,9 +39,7 @@ abstract class ApiPlatformTestCase extends WebTestCase
 
     public static function init(): void
     {
-        if (!self::$kernelBrowser) {
-            self::$kernelBrowser = self::createClient();
-        }
+        self::$kernelBrowser = self::createClient();
         if (!self::$faker) {
             self::$faker = Factory::create('de_DE');
         }
