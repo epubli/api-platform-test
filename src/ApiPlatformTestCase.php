@@ -34,7 +34,8 @@ abstract class ApiPlatformTestCase extends WebTestCase
 
     public function setUp(): void
     {
-        $this->init();
+        parent::setUp();
+        self::init();
     }
 
     public static function init(): void
