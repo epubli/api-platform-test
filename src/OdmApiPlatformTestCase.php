@@ -2,7 +2,6 @@
 
 namespace Epubli\ApiPlatform\TestBundle;
 
-use Epubli\ApiPlatform\TestBundle\ApiPlatformTestCase;
 use Hautelook\AliceBundle\PhpUnit\RefreshMongoDbTrait;
 
 abstract class OdmApiPlatformTestCase extends ApiPlatformTestCase
