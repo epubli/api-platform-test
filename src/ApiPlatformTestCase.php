@@ -322,8 +322,6 @@ abstract class ApiPlatformTestCase extends WebTestCase
 
     abstract protected function testUpdateAResource(): void;
 
-    abstract protected function getDemoDocument();
-
     abstract protected function testThrowErrorWhenDataAreInvalid(): void;
 
     abstract protected function testCreateAResource(): void;

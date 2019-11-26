@@ -17,4 +17,6 @@ abstract class OrmApiPlatformTestCase extends ApiPlatformTestCase
         $manager = self::$container->get('doctrine.orm.entity_manager');
         return $manager->getRepository($class)->findOneBy($criteria);
     }
+
+    abstract protected function getDemoEntity();
 }

@@ -17,4 +17,6 @@ abstract class OdmApiPlatformTestCase extends ApiPlatformTestCase
         $manager = self::$container->get('doctrine_mongodb.odm.document_manager');
         return $manager->getRepository($class)->findOneBy($criteria);
     }
+
+    abstract protected function getDemoDocument();
 }
