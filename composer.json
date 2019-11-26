@@ -13,7 +13,7 @@
         "ext-json": "*",
         "symfony/browser-kit": "^4.3",
         "fzaninotto/faker": "^1.9",
-        "doctrine/orm": "^2.7",
+        "doctrine/orm": "^2.6",
         "symfony/framework-bundle": "^4.3",
         "symfony/validator": "^4.3",
         "symfony/phpunit-bridge": ">=4.3"
