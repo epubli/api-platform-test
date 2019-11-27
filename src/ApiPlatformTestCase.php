@@ -209,6 +209,7 @@ abstract class ApiPlatformTestCase extends WebTestCase
      */
     private function isPropertyWritable(ReflectionProperty $reflectionProperty): bool
     {
+        /** @var bool[] $writables */
         $writables =
             array_map(
                 static function (ApiProperty $x) {
@@ -231,6 +232,7 @@ abstract class ApiPlatformTestCase extends WebTestCase
      */
     private function isPropertyReadable(ReflectionProperty $reflectionProperty): bool
     {
+        /** @var bool[] $readables */
         $readables =
             array_map(
                 function (ApiProperty $x) {
