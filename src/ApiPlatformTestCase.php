@@ -72,12 +72,11 @@ abstract class ApiPlatformTestCase extends WebTestCase
         bool $changeHistory = true
     ): Response {
         $server = [
-            'CONTENT_TYPE' => 'application/ld+json',
-            'HTTP_ACCEPT' => 'application/ld+json',
+            'Content-Type' => 'application/ld+json',
+            'Accept' => 'application/ld+json',
         ];
-        foreach ($headers as $key => $value) {
-            $server['HTTP_' . strtoupper(str_replace('-', '_', $key))] = $value;
-        }
+
+        $server = array_merge($server, $headers);
 
         // POST request doesn't follow 301, symfony creates 301 for trailing slash routes
         $uri = rtrim($uri, '/');
