@@ -3,7 +3,6 @@
 namespace Epubli\ApiPlatform\TestBundle;
 
 use ApiPlatform\Core\Annotation\ApiProperty;
-use Doctrine\Common\Annotations\AnnotationException;
 use Doctrine\Common\Annotations\AnnotationReader;
 use Doctrine\Common\Collections\ArrayCollection;
 use Faker\Factory;
@@ -314,12 +313,6 @@ abstract class ApiPlatformTestCase extends WebTestCase
             array_column($violations, 'propertyPath')
         );
         $calculatedViolationCount = 0;
-        try {
-            $annotationReader = new AnnotationReader();
-        } catch (AnnotationException $e) {
-            $this->assertFalse(true, 'Failed due to AnnotationException');
-            return;
-        }
         try {
             $reflectionClass = new ReflectionClass($data);
         } catch (ReflectionException $e) {
