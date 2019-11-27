@@ -211,12 +211,12 @@ abstract class ApiPlatformTestCase extends WebTestCase
     {
         $writables =
             array_map(
-                function (ApiProperty $x) {
+                static function (ApiProperty $x) {
                     return $x->writable;
                 },
                 array_filter(
                     self::$annotationReader->getPropertyAnnotations($reflectionProperty),
-                    function ($x) {
+                    static function ($x) {
                         return $x instanceof ApiProperty;
                     }
                 )
