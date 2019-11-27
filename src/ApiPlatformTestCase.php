@@ -16,6 +16,10 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Validator\Constraints\NotBlank;
 use Symfony\Component\Validator\Constraints\NotNull;
 use Symfony\Component\Validator\Constraints\Type;
+use Symfony\Component\Serializer\Serializer;
+use Symfony\Component\Serializer\Encoder\JsonEncoder;
+use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
+
 
 /**
  * Class ApiPlatformTest
@@ -33,6 +37,10 @@ abstract class ApiPlatformTestCase extends WebTestCase
      */
     protected static $faker;
 
+    /** @var Serializer */
+    protected static $serializer;
+
+
     public function setUp(): void
     {
         parent::setUp();
@@ -49,6 +57,10 @@ abstract class ApiPlatformTestCase extends WebTestCase
             self::$kernel = self::bootKernel();
             self::$container = self::$kernel->getContainer();
         }
+
+        $encoders = [new JsonEncoder()];
+        $normalizers = [new ObjectNormalizer()];
+        self::$serializer = new Serializer($normalizers, $encoders);
     }
 
     /**
@@ -79,9 +91,7 @@ abstract class ApiPlatformTestCase extends WebTestCase
         // POST request doesn't follow 301, symfony creates 301 for trailing slash routes
         $uri = rtrim($uri, '/');
 
-        if ($content !== null) {
-            $content = json_encode($content, JSON_THROW_ON_ERROR);
-        }
+        $json = !$content ?: self::$serializer->serialize($content, 'json');
 
         self::$kernelBrowser->request(
             $method,
@@ -89,7 +99,7 @@ abstract class ApiPlatformTestCase extends WebTestCase
             $parameters,
             $files,
             $server,
-            $content,
+            $json,
             $changeHistory
         );
 
