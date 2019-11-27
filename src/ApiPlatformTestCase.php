@@ -82,13 +82,17 @@ abstract class ApiPlatformTestCase extends WebTestCase
         // POST request doesn't follow 301, symfony creates 301 for trailing slash routes
         $uri = rtrim($uri, '/');
 
+        if ($content !== null) {
+            $content = json_encode($content, JSON_THROW_ON_ERROR);
+        }
+
         self::$kernelBrowser->request(
             $method,
             $uri,
             $parameters,
             $files,
             $server,
-            json_encode($content, JSON_THROW_ON_ERROR),
+            $content,
             $changeHistory
         );
 
