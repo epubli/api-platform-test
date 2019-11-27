@@ -14,12 +14,12 @@ use ReflectionProperty;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Serializer\Encoder\JsonEncoder;
+use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
+use Symfony\Component\Serializer\Serializer;
 use Symfony\Component\Validator\Constraints\NotBlank;
 use Symfony\Component\Validator\Constraints\NotNull;
 use Symfony\Component\Validator\Constraints\Type;
-use Symfony\Component\Serializer\Serializer;
-use Symfony\Component\Serializer\Encoder\JsonEncoder;
-use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
 
 
 /**
@@ -142,9 +142,12 @@ abstract class ApiPlatformTestCase extends WebTestCase
 
         $getTypeMapping = [
             'boolean' => 'assertIsBool',
+            'bool' => 'assertIsBool',
             'integer' => 'assertIsInt',
+            'int' => 'assertIsInt',
             'double' => 'assertIsFloat',
             'string' => 'assertIsString',
+            'date' => 'assertIsString',
             'array' => 'assertIsArray',
             'object' => 'assertIsObject',
         ];
@@ -162,15 +165,27 @@ abstract class ApiPlatformTestCase extends WebTestCase
 
             $this->assertArrayHasKey($reflectionProperty->name, $json);
 
-            $propertyValue = $this->getPropertyValue($reflectionProperty, $transmittedData);
-
-            $dataType = strtolower(gettype($propertyValue));
-            if (in_array($dataType, $getTypeMapping, true)) {
-                $this->{$getTypeMapping[$dataType]}($json[$reflectionProperty->name]);
+            $propertyValue = $this->getPropertyValue(
+                $reflectionProperty,
+                $transmittedData
+            );
+            $dataType = $this->getPropertyType($reflectionProperty);
+            if (in_array($dataType, array_keys($getTypeMapping), true)) {
+                if ($json[$reflectionProperty->name] !== null) {
+                    $this->{$getTypeMapping[$dataType]}(
+                        $json[$reflectionProperty->name]
+                    );
+                } else {
+                    $this->assertNull($json[$reflectionProperty->name]);
+                }
             }
+
             if ($propertyValue !== null) {
                 if ($propertyValue instanceof ArrayCollection) {
-                    $this->assertEquals($propertyValue->toArray(), $json[$reflectionProperty->name]);
+                    $this->assertEquals(
+                        $propertyValue->toArray(),
+                        $json[$reflectionProperty->name]
+                    );
                 } else {
                     $this->assertEquals(
                         $propertyValue,
@@ -179,73 +194,6 @@ abstract class ApiPlatformTestCase extends WebTestCase
                 }
             }
         }
-    }
-
-    /**
-     * @param ReflectionProperty $reflectionProperty
-     * @param object $data
-     *
-     * @return mixed
-     * @throws ReflectionException
-     */
-    private function getPropertyValue(ReflectionProperty $reflectionProperty, object $data)
-    {
-        $reflectionClass = new ReflectionClass($data);
-        if ($reflectionProperty->isPublic()) {
-            return $data->{$reflectionProperty->name};
-        }
-
-        if ($reflectionClass->hasMethod('get' . ucfirst($reflectionProperty->name))) {
-            return $data->{$reflectionClass->getMethod('get' . ucfirst($reflectionProperty->name))}();
-        }
-
-        throw new \RuntimeException('Can\'t get property value!');
-    }
-
-    /**
-     * @param ReflectionProperty $reflectionProperty
-     *
-     * @return bool
-     */
-    private function isPropertyWritable(ReflectionProperty $reflectionProperty): bool
-    {
-        /** @var bool[] $writables */
-        $writables =
-            array_map(
-                static function (ApiProperty $x) {
-                    return $x->writable;
-                },
-                array_filter(
-                    self::$annotationReader->getPropertyAnnotations($reflectionProperty),
-                    static function ($x) {
-                        return $x instanceof ApiProperty;
-                    }
-                )
-            );
-        return !in_array(false, $writables, true);
-    }
-
-    /**
-     * @param ReflectionProperty $reflectionProperty
-     *
-     * @return bool
-     */
-    private function isPropertyReadable(ReflectionProperty $reflectionProperty): bool
-    {
-        /** @var bool[] $readables */
-        $readables =
-            array_map(
-                function (ApiProperty $x) {
-                    return $x->readable;
-                },
-                array_filter(
-                    self::$annotationReader->getPropertyAnnotations($reflectionProperty),
-                    function ($x) {
-                        return $x instanceof ApiProperty;
-                    }
-                )
-            );
-        return !in_array(false, $readables, true);
     }
 
     /**
@@ -278,6 +226,80 @@ abstract class ApiPlatformTestCase extends WebTestCase
         $this->assertArrayHasKey('id', $json);
         $this->assertIsInt($json['id']);
         $this->assertNotEmpty($json['id']);
+    }
+
+    /**
+     * @param ReflectionProperty $reflectionProperty
+     *
+     * @return bool
+     */
+    private function isPropertyReadable(ReflectionProperty $reflectionProperty): bool
+    {
+        /** @var bool[] $readables */
+        $readables =
+            array_map(
+                function (ApiProperty $x) {
+                    return $x->readable;
+                },
+                array_filter(
+                    self::$annotationReader->getPropertyAnnotations(
+                        $reflectionProperty
+                    ),
+                    function ($x) {
+                        return $x instanceof ApiProperty;
+                    }
+                )
+            );
+        return !in_array(false, $readables, true);
+    }
+
+    /**
+     * @param ReflectionProperty $reflectionProperty
+     * @param object $data
+     *
+     * @return mixed
+     * @throws ReflectionException
+     */
+    private function getPropertyValue(
+        ReflectionProperty $reflectionProperty,
+        object $data
+    ) {
+        $reflectionClass = new ReflectionClass($data);
+        if ($reflectionProperty->isPublic()) {
+            return $data->{$reflectionProperty->name};
+        }
+
+        if ($reflectionClass->hasMethod(
+            'get' . ucfirst($reflectionProperty->name)
+        )
+        ) {
+            return $data->{$reflectionClass->getMethod(
+                'get' . ucfirst($reflectionProperty->name)
+            )}();
+        }
+
+        throw new \RuntimeException('Can\'t get property value!');
+    }
+
+    private function getPropertyType(ReflectionProperty $reflectionProperty)
+    {
+        $annotations = self::$annotationReader->getPropertyAnnotations(
+            $reflectionProperty
+        );
+        foreach ($annotations as $annotation) {
+            $reflectionAnnotation = new ReflectionClass($annotation);
+            if (in_array(
+                $reflectionAnnotation->getNamespaceName(),
+                [
+                    'Doctrine\ODM\MongoDB\Mapping\Annotations',
+                    'Doctrine\ORM\Mapping\Annotation'
+                ]
+            )
+            ) {
+                /** @var Doctrine\ODM\MongoDB\Mapping\Annotations|Doctrine\ORM\Mapping\Annotation $annotation */
+                return $annotation->type;
+            }
+        }
     }
 
     /**
@@ -429,4 +451,29 @@ abstract class ApiPlatformTestCase extends WebTestCase
     abstract protected function testCreateAResource(): void;
 
     abstract protected function testDeleteAResource(): void;
+
+    /**
+     * @param ReflectionProperty $reflectionProperty
+     *
+     * @return bool
+     */
+    private function isPropertyWritable(ReflectionProperty $reflectionProperty): bool
+    {
+        /** @var bool[] $writables */
+        $writables =
+            array_map(
+                static function (ApiProperty $x) {
+                    return $x->writable;
+                },
+                array_filter(
+                    self::$annotationReader->getPropertyAnnotations(
+                        $reflectionProperty
+                    ),
+                    static function ($x) {
+                        return $x instanceof ApiProperty;
+                    }
+                )
+            );
+        return !in_array(false, $writables, true);
+    }
 }
