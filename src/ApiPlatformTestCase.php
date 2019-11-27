@@ -218,7 +218,26 @@ abstract class ApiPlatformTestCase extends WebTestCase
                 ) {
                     continue;
                 }
-                $propertyValue = $data->{$reflectionProperty->name};
+                if ($reflectionProperty->isPublic()) {
+                    $propertyValue = $data->{$reflectionProperty->name};
+                } elseif ($reflectionClass->hasMethod(
+                    'get' . $reflectionProperty->name
+                )
+                ) {
+                    try {
+                        $propertyValue = $data->{$reflectionClass->getMethod(
+                            'get' . $reflectionProperty->name
+                        )}();
+                    } catch (ReflectionException $e) {
+                        $this->assertFalse(
+                            true,
+                            'Failed due to ReflectionException'
+                        );
+                        return;
+                    }
+                } else {
+                    throw new \RuntimeException('Can\'t get property value!');
+                }
                 $propertyType = strtolower(gettype($propertyValue));
 
                 if ($propertyAnnotation instanceof NotBlank
