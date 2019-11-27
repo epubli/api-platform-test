@@ -16,7 +16,8 @@
         "doctrine/orm": "^2.6",
         "symfony/framework-bundle": "^4.3",
         "symfony/validator": "^4.3",
-        "symfony/phpunit-bridge": ">=4.3"
+        "symfony/phpunit-bridge": ">=4.3",
+        "api-platform/api-pack": "^1.2"
     },
     "suggest": {
         "doctrine/doctrine-bundle": "to use the ORM extensions",
