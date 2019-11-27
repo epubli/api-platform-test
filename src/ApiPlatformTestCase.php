@@ -72,10 +72,8 @@ abstract class ApiPlatformTestCase extends WebTestCase
         bool $changeHistory = true
     ): Response {
         $server = [
-            'Content-Type' => 'application/ld+json',
-            'Accept' => 'application/ld+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
         ];
-
         $server = array_merge($server, $headers);
 
         // POST request doesn't follow 301, symfony creates 301 for trailing slash routes
