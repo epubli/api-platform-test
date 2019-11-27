@@ -106,6 +106,8 @@ abstract class ApiPlatformTestCase extends WebTestCase
 
     /**
      * @param object $transmittedData
+     *
+     * @throws ReflectionException
      */
     protected function assertCreateSuccess(object $transmittedData): void
     {
@@ -129,21 +131,53 @@ abstract class ApiPlatformTestCase extends WebTestCase
             'object' => 'assertIsObject',
         ];
 
-        foreach (array_keys(get_object_vars($transmittedData)) as $property) {
-            $this->assertArrayHasKey($property, $json);
+        try {
+            $reflectionClass = new ReflectionClass($transmittedData);
+        } catch (ReflectionException $e) {
+            $this->assertFalse(true, 'Failed due to ReflectionException');
+            return;
+        }
+        foreach ($reflectionClass->getProperties() as $reflectionProperty) {
+            $this->assertArrayHasKey($reflectionProperty->name, $json);
 
-            $dataType = gettype($transmittedData->{$property});
+            $propertyValue = $this->getPropertyValue($reflectionProperty, $transmittedData);
+
+            $dataType = strtolower(gettype($propertyValue));
             if (in_array($dataType, $getTypeMapping, true)) {
-                $this->{$getTypeMapping[$dataType]}($json[$property]);
+                $this->{$getTypeMapping[$dataType]}($json[$reflectionProperty->name]);
             }
-            if ($transmittedData->{$property} !== null) {
-                if ($transmittedData->{$property} instanceof ArrayCollection) {
-                    $this->assertEquals($transmittedData->{$property}->toArray(), $json[$property]);
+            if ($propertyValue !== null) {
+                if ($propertyValue instanceof ArrayCollection) {
+                    $this->assertEquals($propertyValue->toArray(), $json[$reflectionProperty->name]);
                 } else {
-                    $this->assertEquals($transmittedData->{$property}, $json[$property]);
+                    $this->assertEquals(
+                        $propertyValue,
+                        $json[$reflectionProperty->name]
+                    );
                 }
             }
         }
+    }
+
+    /**
+     * @param ReflectionProperty $reflectionProperty
+     * @param object $data
+     *
+     * @return mixed
+     * @throws ReflectionException
+     */
+    private function getPropertyValue(ReflectionProperty $reflectionProperty, object $data)
+    {
+        $reflectionClass = new ReflectionClass($data);
+        if ($reflectionProperty->isPublic()) {
+            return $data->{$reflectionProperty->name};
+        }
+
+        if ($reflectionClass->hasMethod('get' . ucfirst($reflectionProperty->name))) {
+            return $data->{$reflectionClass->getMethod('get' . ucfirst($reflectionProperty->name))}();
+        }
+
+        throw new \RuntimeException('Can\'t get property value!');
     }
 
     /**
@@ -218,26 +252,7 @@ abstract class ApiPlatformTestCase extends WebTestCase
                 ) {
                     continue;
                 }
-                if ($reflectionProperty->isPublic()) {
-                    $propertyValue = $data->{$reflectionProperty->name};
-                } elseif ($reflectionClass->hasMethod(
-                    'get' . $reflectionProperty->name
-                )
-                ) {
-                    try {
-                        $propertyValue = $data->{$reflectionClass->getMethod(
-                            'get' . $reflectionProperty->name
-                        )}();
-                    } catch (ReflectionException $e) {
-                        $this->assertFalse(
-                            true,
-                            'Failed due to ReflectionException'
-                        );
-                        return;
-                    }
-                } else {
-                    throw new \RuntimeException('Can\'t get property value!');
-                }
+                $propertyValue = $this->getPropertyValue($reflectionProperty, $data);
                 $propertyType = strtolower(gettype($propertyValue));
 
                 if ($propertyAnnotation instanceof NotBlank
