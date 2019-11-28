@@ -336,7 +336,7 @@ abstract class ApiPlatformTestCase extends WebTestCase
                     continue;
                 }
                 $propertyValue = $this->getPropertyValue($reflectionProperty, $data);
-                $propertyType = strtolower(gettype($propertyValue));
+                $propertyType = $this->getNonAliasType(strtolower(gettype($propertyValue)));
 
                 if ($propertyAnnotation instanceof NotBlank
                     && empty($propertyValue)
@@ -351,8 +351,8 @@ abstract class ApiPlatformTestCase extends WebTestCase
                     $expectedMessage = $propertyAnnotation->message;
                     $calculatedViolationCount++;
                 } elseif ($propertyAnnotation instanceof Type
-                    && !empty($propertyValue)
-                    && $propertyType !== $propertyAnnotation->type
+                    && $propertyValue !== null
+                    && $propertyType !== $this->getNonAliasType($propertyAnnotation->type)
                 ) {
                     /** @var Type $propertyAnnotation */
                     $expectedMessage = str_replace(
@@ -378,6 +378,19 @@ abstract class ApiPlatformTestCase extends WebTestCase
             }
         }
         $this->assertCount($calculatedViolationCount, $violations);
+    }
+
+    private function getNonAliasType($type)
+    {
+        $types = [
+            'boolean' => 'bool',
+            'integer' => 'int',
+            'double' => 'float',
+        ];
+        if (in_array($type, array_keys($types), true)) {
+            return $types[$type];
+        }
+        return $type;
     }
 
     /**
