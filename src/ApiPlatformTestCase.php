@@ -190,6 +190,11 @@ abstract class ApiPlatformTestCase extends WebTestCase
                         $propertyValue->toArray(),
                         $json[$reflectionProperty->name]
                     );
+                } elseif ($propertyValue instanceof \DateTime) {
+                    $this->assertEquals(
+                        $propertyValue,
+                        new \DateTime($json[$reflectionProperty->name])
+                    );
                 } else {
                     $this->assertEquals(
                         $propertyValue,
