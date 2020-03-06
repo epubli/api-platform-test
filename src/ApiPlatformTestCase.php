@@ -279,7 +279,7 @@ abstract class ApiPlatformTestCase extends WebTestCase
         ) {
             return $data->{$reflectionClass->getMethod(
                 'get' . ucfirst($reflectionProperty->name)
-            )}();
+            )->name}();
         }
 
         throw new \RuntimeException('Can\'t get property value!');
