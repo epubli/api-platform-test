@@ -343,6 +343,18 @@ abstract class ApiPlatformTestCase extends WebTestCase
                 $propertyValue = $this->getPropertyValue($reflectionProperty, $data);
                 $propertyType = $this->getNonAliasType(strtolower(gettype($propertyValue)));
 
+                if ($propertyAnnotation instanceof Type
+                    && $propertyAnnotation->type === 'numeric') {
+                    throw new \RuntimeException(
+                        'The assertion type can not be "numeric"! '
+                        . 'This package is not programmed to deal with this type. '
+                        . 'Please edit the entity "' . $reflectionProperty->class . '". '
+                        . 'Change the annotation of the variable "' . $reflectionProperty->name . '". '
+                        . 'Change "@Assert\Type(type="numeric")" to either "integer" or "float". '
+                        . 'If your integer can be bigger than 19 digits then choose float.'
+                    );
+                }
+
                 if ($propertyAnnotation instanceof NotBlank
                     && empty($propertyValue)
                 ) {
