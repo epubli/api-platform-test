@@ -379,6 +379,7 @@ abstract class ApiPlatformTestCase extends WebTestCase
                     );
                     $calculatedViolationCount++;
                 } else {
+                    //TODO Add more assertion types
                     continue;
                 }
 
