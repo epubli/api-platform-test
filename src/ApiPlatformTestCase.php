@@ -181,11 +181,12 @@ abstract class ApiPlatformTestCase extends WebTestCase
                 continue;
             }
 
-            $propertyIsNull = $transmittedData->{$reflectionClass->getMethod(
-                    'get' . ucfirst($reflectionProperty->name)
-                )->name}() === null;
+            $propertyValue = $this->getPropertyValue(
+                $reflectionProperty,
+                $transmittedData
+            );
 
-            if (!$propertyIsNull) {
+            if ($propertyValue !== null) {
                 $this->assertArrayHasKey($reflectionProperty->name, $json);
             }
 
@@ -194,10 +195,6 @@ abstract class ApiPlatformTestCase extends WebTestCase
                 continue;
             }
 
-            $propertyValue = $this->getPropertyValue(
-                $reflectionProperty,
-                $transmittedData
-            );
             $dataType = $this->getPropertyType($reflectionProperty);
             if (in_array($dataType, array_keys($getTypeMapping), true)) {
                 if ($json[$reflectionProperty->name] !== null) {
