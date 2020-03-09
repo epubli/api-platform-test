@@ -78,6 +78,8 @@ abstract class ApiPlatformTestCase extends WebTestCase
     {
         if (!$content) {
             return null;
+        } elseif (is_string($content)) {
+            return $content;
         } elseif ($content instanceof \stdClass) {
             return self::$serializer->encode($content, 'json');
         } else {
@@ -88,7 +90,8 @@ abstract class ApiPlatformTestCase extends WebTestCase
     /**
      * @param string $uri
      * @param string $method
-     * @param object|null $content
+     * @param object|string|null $content Objects will be serialized and
+     * strings will be treated as already serialized json.
      * @param array $files
      * @param array $parameters
      * @param array $headers
@@ -99,7 +102,7 @@ abstract class ApiPlatformTestCase extends WebTestCase
     protected function request(
         string $uri,
         string $method = 'GET',
-        object $content = null,
+        $content = null,
         array $files = [],
         array $parameters = [],
         array $headers = [],
