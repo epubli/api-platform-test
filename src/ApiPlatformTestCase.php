@@ -71,6 +71,21 @@ abstract class ApiPlatformTestCase extends WebTestCase
     }
 
     /**
+     * @param mixed|null $content
+     * @return string|null $json
+     */
+    public static function serializeToJsonForPOST($content): ?string
+    {
+        if (!$content) {
+            return null;
+        } elseif ($content instanceof \stdClass) {
+            return self::$serializer->encode($content, 'json');
+        } else {
+            return self::$serializer->serialize($content, 'json');
+        }
+    }
+
+    /**
      * @param string $uri
      * @param string $method
      * @param object|null $content
@@ -98,11 +113,7 @@ abstract class ApiPlatformTestCase extends WebTestCase
 
         // POST request doesn't follow 301, symfony creates 301 for trailing slash routes
         $uri = rtrim($uri, '/');
-        if ($content instanceof \stdClass) {
-            $json = self::$serializer->encode($content, 'json');
-        } else {
-            $json = !$content ?: self::$serializer->serialize($content, 'json');
-        }
+        $json = self::serializeToJsonForPOST($content);
 
         self::$kernelBrowser->request(
             $method,
