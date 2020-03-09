@@ -189,6 +189,11 @@ abstract class ApiPlatformTestCase extends WebTestCase
                 $this->assertArrayHasKey($reflectionProperty->name, $json);
             }
 
+            if ($reflectionProperty->name === 'createdAt'
+                || $reflectionProperty->name === 'updatedAt') {
+                continue;
+            }
+
             $propertyValue = $this->getPropertyValue(
                 $reflectionProperty,
                 $transmittedData
