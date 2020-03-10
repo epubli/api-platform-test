@@ -337,6 +337,13 @@ abstract class ApiPlatformTestCase extends WebTestCase
         }
     }
 
+
+    protected function assertHasViolations(): void
+    {
+        $json = $this->getJson();
+        $this->assertArrayHasKey('violations', $json);
+    }
+
     /**
      * @param object $data
      */
