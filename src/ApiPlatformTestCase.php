@@ -502,6 +502,59 @@ abstract class ApiPlatformTestCase extends WebTestCase
         $this->assertCount($count, $json);
     }
 
+    protected function assertTimestampsForUpdate(int $allowedTimeDifferenceInSeconds = 120)
+    {
+        $this->assertHasGedmoDates();
+
+        $json = $this->getJson();
+
+        $updatedAt = new \DateTime($json['updatedAt']);
+        $difference = $updatedAt->diff(new \DateTime());
+
+        $this->assertLessThan(
+            $allowedTimeDifferenceInSeconds,
+            $difference->s,
+            "updated_at was last touched more than $allowedTimeDifferenceInSeconds seconds ago"
+        );
+    }
+
+    protected function assertTimestampsForCreate(int $allowedTimeDifferenceInSeconds = 120)
+    {
+        $this->assertHasGedmoDates();
+
+        $json = $this->getJson();
+
+        $this->assertArrayNotHasKey('deletedAt', $json);
+
+        foreach (['createdAt', 'updatedAt'] as $dateProp) {
+            $dateValue = new \DateTime($json[$dateProp]);
+            $difference = $dateValue->diff(new \DateTime());
+
+            $this->assertLessThan(
+                $allowedTimeDifferenceInSeconds,
+                $difference->s,
+                "$dateProp was last touched more than $allowedTimeDifferenceInSeconds seconds ago"
+            );
+        }
+    }
+
+    protected function assertDeletedAt(string $class, int $id, int $allowedTimeDifferenceInSeconds = 120)
+    {
+        $entity = $this->findOne($class, ['id' => $id]);
+
+        $this->assertObjectHasAttribute('deletedAt', $entity);
+
+        $reflectionClass = new ReflectionClass($entity);
+        $dateValue = $entity->{$reflectionClass->getMethod('getDeletedAt')->name}();
+        $difference = $dateValue->diff(new \DateTime());
+
+        $this->assertLessThan(
+            $allowedTimeDifferenceInSeconds,
+            $difference->s,
+            "deleted_at was last touched more than $allowedTimeDifferenceInSeconds seconds ago"
+        );
+    }
+
     abstract protected function testRetrieveTheResourceList(): void;
 
     abstract protected function testRetrieveAResource(): void;
