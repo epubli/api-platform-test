@@ -112,6 +112,9 @@ abstract class ApiPlatformTestCase extends WebTestCase
             'CONTENT_TYPE' => 'application/ld+json',
             'HTTP_ACCEPT' => 'application/ld+json',
         ];
+        if ($method === 'PATCH') {
+            $server['CONTENT_TYPE'] = 'application/merge-patch+json';
+        }
         $server = array_merge($server, $headers);
 
         // POST request doesn't follow 301, symfony creates 301 for trailing slash routes
