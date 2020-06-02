@@ -44,6 +44,9 @@ abstract class ApiPlatformTestCase extends WebTestCase
     /** @var Annotationreader */
     protected static $annotationReader;
 
+    /** @var string[] */
+    protected static $headers;
+
     public function setUp(): void
     {
         parent::setUp();
@@ -52,7 +55,7 @@ abstract class ApiPlatformTestCase extends WebTestCase
 
     public static function init(): void
     {
-        self::$kernelBrowser = self::createClient();
+        self::$kernelBrowser = self::createClient([], self::$headers);
         if (!self::$faker) {
             self::$faker = Factory::create('de_DE');
         }
