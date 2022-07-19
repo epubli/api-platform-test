@@ -5,8 +5,6 @@ namespace Epubli\ApiPlatform\TestBundle;
 use ApiPlatform\Core\Annotation\ApiProperty;
 use Doctrine\Common\Annotations\AnnotationReader;
 use Doctrine\Common\Collections\ArrayCollection;
-use Faker\Factory;
-use Faker\Generator;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionProperty;
@@ -33,11 +31,6 @@ abstract class ApiPlatformTestCase extends WebTestCase
      */
     protected static $kernelBrowser;
 
-    /**
-     * @var Generator
-     */
-    protected static $faker;
-
     /** @var Serializer */
     protected static $serializer;
 
@@ -56,9 +49,6 @@ abstract class ApiPlatformTestCase extends WebTestCase
     public static function init(): void
     {
         self::$kernelBrowser = self::createClient([], self::$headers ?? []);
-        if (!self::$faker) {
-            self::$faker = Factory::create('de_DE');
-        }
         if (!self::$container) {
             self::$kernel = self::bootKernel();
             self::$container = self::$kernel->getContainer();
