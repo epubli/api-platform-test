@@ -220,6 +220,49 @@ class ApiPlatformBaseTestCase extends ApiTestCase
 
     //</editor-fold>
 
+    //<editor-fold desc="*** Reflection helper ***">
+
+    /**
+     * @param \ReflectionProperty $reflectionProperty
+     * @param object $data
+     *
+     * @return mixed
+     * @throws \ReflectionException
+     */
+    protected function getPropertyValue(\ReflectionProperty $reflectionProperty, object $data): mixed
+    {
+        $reflectionClass = new \ReflectionClass($data);
+        if ($reflectionProperty->isPublic()) {
+            return $data->{$reflectionProperty->name};
+        }
+
+        if ($reflectionClass->hasMethod(
+            'get' . ucfirst($reflectionProperty->name)
+        )
+        ) {
+            return $data->{$reflectionClass->getMethod(
+                'get' . ucfirst($reflectionProperty->name)
+            )->name}();
+        }
+
+        throw new \RuntimeException('Can\'t get property value!');
+    }
+
+    protected function getNonAliasType($type): string
+    {
+        $types = [
+            'boolean' => 'bool',
+            'integer' => 'int',
+            'double' => 'float',
+        ];
+        if (in_array($type, array_keys($types), true)) {
+            return $types[$type];
+        }
+        return $type;
+    }
+
+    //</editor-fold>
+
     //<editor-fold desc="*** Doctrine helper ***">
 
     /**
