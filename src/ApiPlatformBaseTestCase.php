@@ -13,6 +13,7 @@ use Doctrine\Persistence\ObjectRepository;
 use Faker\Factory;
 use Faker\Generator;
 use Hautelook\AliceBundle\PhpUnit\RecreateDatabaseTrait;
+use Symfony\Component\HttpFoundation\Response as STATUS;
 use Symfony\Component\Serializer\Encoder\JsonEncoder;
 use Symfony\Component\Serializer\Mapping\ClassDiscriminatorFromClassMetadata;
 use Symfony\Component\Serializer\Mapping\Factory\ClassMetadataFactory;
@@ -22,6 +23,13 @@ use Symfony\Component\Serializer\Normalizer\AbstractObjectNormalizer;
 use Symfony\Component\Serializer\Normalizer\DateTimeNormalizer;
 use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
 use Symfony\Component\Serializer\Serializer;
+use Symfony\Component\Validator\Constraints\NotBlank;
+use Symfony\Component\Validator\Constraints\NotNull;
+use Symfony\Component\Validator\Constraints\Type;
+use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\DecodingExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\RedirectionExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\ServerExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
 
@@ -312,4 +320,323 @@ class ApiPlatformBaseTestCase extends ApiTestCase
 
     //</editor-fold>
 
+    //<editor-fold desc="*** Assert methods ***">
+
+    /**
+     * Assert that the response header contains Content-Type:'application/ld+json; charset=utf-8'
+     * @return void
+     */
+    protected function assertLdJsonHeader(): void
+    {
+        self::assertResponseHeaderSame(
+            'Content-Type',
+            'application/ld+json; charset=utf-8'
+        );
+    }
+
+    /**
+     * Assert that the 'createdAt' and 'updatedAt' properties are set in the response
+     * @param array $jsonResponse
+     * @return void
+     */
+    protected function assertTimestampable(array $jsonResponse): void
+    {
+        foreach (['createdAt', 'updatedAt'] as $dateProp) {
+            $this->assertArrayHasKey($dateProp, $jsonResponse);
+            $this->assertIsString($jsonResponse[$dateProp]);
+            $this->assertNotEmpty($jsonResponse[$dateProp]);
+        }
+    }
+
+    /**
+     * Assert that the response contains a hydra:totalItems and hydra:member attribute
+     * The count of hydra:member must be > 0 and #hydra:member === hydra:totalItems
+     * @throws TransportExceptionInterface
+     */
+    protected function assertCollectionHasItems(): void
+    {
+        $json = $this->getResponseAsJson();
+        $this->assertArrayHasKey('hydra:totalItems', $json);
+        $count = $json['hydra:totalItems'];
+        $this->assertGreaterThan(0, $count);
+        $this->assertArrayHasKey('hydra:member', $json);
+        $this->assertCount($count, $json['hydra:member']);
+    }
+
+    /**
+     * Assert that the response constains $count hydra:members
+     * @throws TransportExceptionInterface
+     */
+    protected function assertCollectionCount(int $count, ?array $jsonResponse = null): void
+    {
+        $jsonResponse = $jsonResponse ?? $this->getResponseAsJson();
+        $this->assertArrayHasKey('hydra:totalItems', $jsonResponse);
+        $this->assertEquals($count, $jsonResponse['hydra:totalItems']);
+
+        $this->assertArrayHasKey('hydra:member', $jsonResponse);
+        $this->assertCount($count, $jsonResponse['hydra:member']);
+    }
+
+    /**
+     * Assert the response has $count attributes
+     * @throws TransportExceptionInterface
+     */
+    protected function assertResourcePropertyCount(int $count, ?array $jsonResponse = null): void
+    {
+        $jsonResponse = $jsonResponse ?? $this->getResponseAsJson();
+        $this->assertCount($count, $jsonResponse);
+    }
+
+    // ------------------------------- CRUD - Asserts ----------------------
+
+    /**
+     * Assert that the right resource is returned to the response
+     * @param array $jsonResource
+     * @return void
+     * @throws TransportExceptionInterface
+     * @throws ClientExceptionInterface
+     * @throws DecodingExceptionInterface
+     * @throws RedirectionExceptionInterface
+     * @throws ServerExceptionInterface
+     */
+    protected function assertReadAResource(array $jsonResource): void
+    {
+        self::assertResponseStatusCodeSame(STATUS::HTTP_OK);
+        $this->assertLdJsonHeader();
+        $this->assertJsonContains($jsonResource);
+    }
+
+    /**
+     * Assert that a collection of items is returned to the response
+     * @return void
+     * @throws TransportExceptionInterface
+     */
+    protected function assertReadAResourceCollection(): void
+    {
+        self::assertResponseStatusCodeSame(STATUS::HTTP_OK);
+        $this->assertLdJsonHeader();
+        $this->assertCollectionHasItems();
+    }
+
+    /**
+     * Assert that the response contains the submitted values from the updated resource
+     * @param array $jsonResource
+     * @return void
+     * @throws ClientExceptionInterface
+     * @throws DecodingExceptionInterface
+     * @throws RedirectionExceptionInterface
+     * @throws ServerExceptionInterface
+     * @throws TransportExceptionInterface
+     * @throws \Exception
+     */
+    protected function assertUpdatedAResource(array $jsonResource): void
+    {
+        self::assertResponseStatusCodeSame(STATUS::HTTP_OK);
+        $this->assertLdJsonHeader();
+
+        $jsonResponse = $this->getResponseAsJson();
+        // assert the response contains the new values
+        $this->assertJsonContains($jsonResource);
+        // assert timestamps got updated
+        $this->assertTimestampsForUpdate($jsonResponse);
+    }
+
+    /**
+     * Assert that the updatedAt attribute is set and did not take too long
+     * @throws \Exception
+     */
+    protected function assertTimestampsForUpdate(array $jsonResponse, int $allowedTimeDifferenceInSeconds = 120)
+    {
+        $this->assertTimestampable($jsonResponse);
+        $updatedAt = new \DateTime($jsonResponse['updatedAt']);
+        $difference = $updatedAt->diff(new \DateTime());
+        $this->assertLessThan(
+            $allowedTimeDifferenceInSeconds,
+            $difference->s,
+            "updated_at was last touched more than $allowedTimeDifferenceInSeconds seconds ago"
+        );
+    }
+
+    /**
+     * Assert that the response contains the submitted values and that the timestamps are updated
+     * @param array $jsonResource
+     * @return void
+     * @throws ClientExceptionInterface
+     * @throws DecodingExceptionInterface
+     * @throws RedirectionExceptionInterface
+     * @throws ServerExceptionInterface
+     * @throws TransportExceptionInterface
+     */
+    protected function assertCreateAResource(array $jsonResource): void
+    {
+        self::assertResponseStatusCodeSame(STATUS::HTTP_CREATED);
+        $this->assertLdJsonHeader();
+        $this->assertJsonContains($jsonResource);
+        $this->assertCreateAResourceTimestamps();
+    }
+
+    /**
+     * Assert that the createdAt updatedAt values are set not long ago
+     * @throws TransportExceptionInterface
+     * @throws \Exception
+     */
+    protected function assertCreateAResourceTimestamps(int $allowedTimeDifferenceInSeconds = 120)
+    {
+        $jsonResponse = $this->getResponseAsJson();
+        $this->assertTimestampable($jsonResponse);
+        $this->assertArrayNotHasKey('deletedAt', $jsonResponse);
+
+        foreach (['createdAt', 'updatedAt'] as $dateProp) {
+            $dateValue = new \DateTime($jsonResponse[$dateProp]);
+            $difference = $dateValue->diff(new \DateTime());
+            $this->assertGreaterThan(0, $difference->f); // should not be the same time as before
+            $this->assertLessThan(
+                $allowedTimeDifferenceInSeconds,
+                $difference->s,
+                "$dateProp was last touched more than $allowedTimeDifferenceInSeconds seconds ago"
+            );
+        }
+    }
+
+    /**
+     * Assert that the response is empty and that the resource is softdeleted
+     * @param string $resourceId
+     * @return void
+     * @throws TransportExceptionInterface
+     * @throws \Exception
+     */
+    protected function assertDeleteAResource(string $resourceId): void
+    {
+        self::assertResponseStatusCodeSame(STATUS::HTTP_NO_CONTENT);
+        $jsonResponse = $this->getResponseAsJson();
+        $this->assertEmpty($jsonResponse);
+        $this->assertDeletedAt(static::RESOURCE_CLASS, $resourceId);
+    }
+
+    /**
+     * @throws \Exception
+     */
+    protected function assertDeletedAt(string $class, int $id, int $allowedTimeDifferenceInSeconds = 120)
+    {
+        // disable the softdeletable filter or nothing is returned by findOne
+        $filters = $this->getEntityManager()->getFilters();
+        $filters->disable('softdeleteable');
+
+        $entity = $this->findOne($class, ['id' => $id]);
+
+        $this->assertObjectHasAttribute('deletedAt', $entity);
+        $dateValue = $entity->getDeletedAt();
+        $difference = $dateValue->diff(new \DateTime());
+
+        $this->assertGreaterThan(0, $difference->f); // should not be the same time as before
+        $this->assertLessThan(
+            $allowedTimeDifferenceInSeconds,
+            $difference->s,
+            "deleted_at was last touched more than $allowedTimeDifferenceInSeconds seconds ago"
+        );// should not be too long ago
+
+        // enable the softdeletable filter for the following tests
+        $filters->enable('softdeleteable');
+    }
+
+    // -------------------------------
+
+    /**
+     * @throws TransportExceptionInterface
+     */
+    protected function assertHasViolations(): void
+    {
+        $json = $this->getResponseAsJson();
+        $this->assertArrayHasKey('violations', $json);
+    }
+
+    /**
+     * @param object $data
+     * @throws \ReflectionException|TransportExceptionInterface
+     */
+    protected function assertViolations(object $data): void
+    {
+        $json = $this->getResponseAsJson();
+        $this->assertArrayHasKey('violations', $json);
+        $violations = $json['violations'];
+        $violationPropertyIndexes = array_flip(
+            array_column($violations, 'propertyPath')
+        );
+        $calculatedViolationCount = 0;
+        try {
+            $reflectionClass = new \ReflectionClass($data);
+        } catch (\Exception) {
+            $this->fail('Failed due to ReflectionException');
+        }
+        foreach ($reflectionClass->getProperties() as $reflectionProperty) {
+            foreach (self::$annotationReader->getPropertyAnnotations(
+                $reflectionProperty
+            ) as $propertyAnnotation) {
+                try {
+                    $reflectionAnnotation = new \ReflectionClass($propertyAnnotation);
+                } catch (\Exception) {
+                    $this->fail('Failed due to ReflectionException');
+                }
+                if ($reflectionAnnotation->getNamespaceName()
+                    !== 'Symfony\Component\Validator\Constraints'
+                ) {
+                    continue;
+                }
+                $propertyValue = $this->getPropertyValue($reflectionProperty, $data);
+                $propertyType = $this->getNonAliasType(strtolower(gettype($propertyValue)));
+
+                if ($propertyAnnotation instanceof Type
+                    && $propertyAnnotation->type === 'numeric') {
+                    throw new \RuntimeException(
+                        'The assertion type can not be "numeric"! '
+                        . 'This package is not programmed to deal with this type. '
+                        . 'Please edit the entity "' . $reflectionProperty->class . '". '
+                        . 'Change the annotation of the variable "' . $reflectionProperty->name . '". '
+                        . 'Change "@Assert\Type(type="numeric")" to either "integer" or "float". '
+                        . 'If your integer can be bigger than 19 digits then choose float.'
+                    );
+                }
+
+                if ($propertyAnnotation instanceof NotBlank
+                    && empty($propertyValue)
+                ) {
+                    $expectedMessage = $propertyAnnotation->message;
+                    $calculatedViolationCount++;
+                } elseif ($propertyAnnotation instanceof NotNull
+                    && $propertyValue === null
+                ) {
+                    $expectedMessage = $propertyAnnotation->message;
+                    $calculatedViolationCount++;
+                } elseif ($propertyAnnotation instanceof Type
+                    && $propertyValue !== null
+                    && $propertyType !== $this->getNonAliasType($propertyAnnotation->type)
+                ) {
+                    /** @var Type $propertyAnnotation */
+                    $expectedMessage = str_replace(
+                        '{{ type }}',
+                        $propertyAnnotation->type,
+                        $propertyAnnotation->message
+                    );
+                    $calculatedViolationCount++;
+                } else {
+                    //TODO Add more assertion types
+                    continue;
+                }
+
+                $index = $violationPropertyIndexes[$reflectionProperty->name];
+                $this->assertArrayHasKey('propertyPath', $violations[$index]);
+                $this->assertEquals(
+                    $reflectionProperty->name,
+                    $violations[$index]['propertyPath']
+                );
+                $this->assertEquals(
+                    $expectedMessage,
+                    $violations[$index]['message']
+                );
+            }
+        }
+        $this->assertCount($calculatedViolationCount, $violations);
+    }
+
+    //</editor-fold>
 }
