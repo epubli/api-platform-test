@@ -114,6 +114,17 @@ class ApiPlatformBaseTestCase extends ApiTestCase
         return [];
     }
 
+    /**
+     * Replace ignored attributes with values
+     * @param string $key
+     * @param mixed $value
+     * @return ?string - a replacement value for the ignored attribute
+     */
+    protected function replaceIgnoredAttribute(string $key, mixed $value):?string
+    {
+        return null;
+    }
+
     public static function disableSymfonyExceptionHandling(): void
     {
         /** @noinspection PhpInternalEntityUsedInspection */
@@ -224,13 +235,19 @@ class ApiPlatformBaseTestCase extends ApiTestCase
      * Serialize the content into a json string
      * @see getSerializerContext
      */
-    protected function decodeToJson(mixed $content, array $skipAttributes = []): array
+    protected function decodeToJson(object|array $content, array $skipAttributes = []): array
     {
         $asJsonString = $this->serializeToJson($content, $skipAttributes);
         $context = $this->getSerializerContext();
         $context[AbstractNormalizer::IGNORED_ATTRIBUTES] = array_merge($context[AbstractNormalizer::IGNORED_ATTRIBUTES], $skipAttributes);
-        return self::$serializer->decode($asJsonString, JsonEncoder::FORMAT, $context);
-
+        $decoded = self::$serializer->decode($asJsonString, JsonEncoder::FORMAT, $context);
+        foreach ($context[AbstractNormalizer::IGNORED_ATTRIBUTES] as $attrKey) {
+            $replacedValue = $this->replaceIgnoredAttribute($attrKey, $content);
+            if($replacedValue !== null) {
+                $decoded[$attrKey] = $replacedValue;
+            }
+        }
+        return $decoded;
     }
 
     //</editor-fold>
@@ -530,7 +547,9 @@ class ApiPlatformBaseTestCase extends ApiTestCase
         $filters->disable('softdeleteable');
 
         $entity = $this->findOne($class, ['id' => $id]);
-
+        if($entity === null){
+            $this->fail('Could not find entity '.  $class . ' with id '. $id);
+        }
         $this->assertObjectHasAttribute('deletedAt', $entity);
         $dateValue = $entity->getDeletedAt();
         $difference = $dateValue->diff(new \DateTime());
