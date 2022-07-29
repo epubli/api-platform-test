@@ -22,6 +22,7 @@ use Symfony\Component\Serializer\Normalizer\AbstractObjectNormalizer;
 use Symfony\Component\Serializer\Normalizer\DateTimeNormalizer;
 use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
 use Symfony\Component\Serializer\Serializer;
+use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
 
 class ApiPlatformBaseTestCase extends ApiTestCase
@@ -104,6 +105,119 @@ class ApiPlatformBaseTestCase extends ApiTestCase
     {
         return [];
     }
+    //</editor-fold>
+
+    //<editor-fold desc="*** Request/Response helper ***">
+
+    /**
+     * Request wrapper around the http client which sets some headers and serializes the content to a json string
+     * @param string $url
+     * @param string $method
+     * @param mixed $content Objects will be serialized and strings will be treated as already serialized json.
+     * @param array $files
+     * @param array $parameters
+     * @param array $headers
+     *
+     * @return ResponseInterface
+     * @throws TransportExceptionInterface
+     */
+    protected function request(string $url, string $method = 'GET', mixed $content = null,
+                               array  $files = [], array $parameters = [], array $headers = []): ResponseInterface
+    {
+        $headers = array_merge([
+            'CONTENT_TYPE' => ($method === 'PATCH') ? 'application/merge-patch+json' : 'application/ld+json',
+            'HTTP_ACCEPT' => 'application/ld+json',
+        ], $headers);
+
+        // POST request doesn't follow 301, symfony creates 301 for trailing slash routes
+        $url = rtrim($url, '/');
+
+        // options json or body is okay
+        $options = [
+            'headers' => $headers,
+            'body' => $this->serializeToJson($content),
+            'extra' => [
+                'parameters' => $parameters,
+                'files' => $files,
+            ]
+        ];
+
+        return self::$response = self::$client->request(
+            method: $method,
+            url: $url,
+            options: $options
+        );
+    }
+
+    /**
+     * Access the http response directly
+     * @return ResponseInterface
+     * @throws \Exception
+     */
+    protected static function getResponse(): ResponseInterface
+    {
+        if (!isset(self::$response)) {
+            throw new \Exception('No Request was executed and so no Response is available.', 1658845434453);
+        }
+        return self::$response;
+    }
+
+    /**
+     * Access the http response content directly
+     * @throws \Exception
+     * @throws TransportExceptionInterface
+     */
+    protected function getResponseContent(): string
+    {
+        return self::getResponse()->getContent(throw: false);
+    }
+
+    /**
+     * Decodes the http response into a json array
+     * @return array
+     * @throws \Exception
+     * @throws TransportExceptionInterface
+     */
+    protected function getResponseAsJson(): array
+    {
+        $content = $this->getResponseContent();
+        return empty($content)
+            ? []
+            : static::$serializer->decode($content, JsonEncoder::FORMAT);
+    }
+
+    /**
+     * Serialize the content into a json string
+     * @param mixed|null $content
+     * @return string|null $json
+     * @see getSerializerContext
+     */
+    protected function serializeToJson(mixed $content, array $skipAttributes = []): ?string
+    {
+        if (!$content) {
+            return null;
+        } elseif (is_string($content)) {
+            return $content;
+        } else {
+            $context = $this->getSerializerContext();
+            $context[AbstractNormalizer::IGNORED_ATTRIBUTES] = array_merge($context[AbstractNormalizer::IGNORED_ATTRIBUTES], $skipAttributes);
+            return self::$serializer->serialize($content, JsonEncoder::FORMAT, $context);
+        }
+    }
+
+    /**
+     * Serialize the content into a json string
+     * @see getSerializerContext
+     */
+    protected function decodeToJson(mixed $content, array $skipAttributes = []): array
+    {
+        $asJsonString = $this->serializeToJson($content, $skipAttributes);
+        $context = $this->getSerializerContext();
+        $context[AbstractNormalizer::IGNORED_ATTRIBUTES] = array_merge($context[AbstractNormalizer::IGNORED_ATTRIBUTES], $skipAttributes);
+        return self::$serializer->decode($asJsonString, JsonEncoder::FORMAT, $context);
+
+    }
+
     //</editor-fold>
 
     //<editor-fold desc="*** Doctrine helper ***">
