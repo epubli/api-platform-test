@@ -2,589 +2,187 @@
 
 namespace Epubli\ApiPlatform\TestBundle;
 
-use ApiPlatform\Core\Annotation\ApiProperty;
-use Doctrine\Common\Annotations\AnnotationReader;
-use Doctrine\Common\Collections\ArrayCollection;
-use ReflectionClass;
-use ReflectionException;
-use ReflectionProperty;
-use Symfony\Bundle\FrameworkBundle\KernelBrowser;
-use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
-use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Serializer\Encoder\JsonEncoder;
-use Symfony\Component\Serializer\Normalizer\DateTimeNormalizer;
-use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
-use Symfony\Component\Serializer\Serializer;
-use Symfony\Component\Validator\Constraints\NotBlank;
-use Symfony\Component\Validator\Constraints\NotNull;
-use Symfony\Component\Validator\Constraints\Type;
-
+use Hautelook\AliceBundle\PhpUnit\RefreshDatabaseTrait;
+use Symfony\Component\HttpFoundation\Response as STATUS;
+use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\DecodingExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\RedirectionExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\ServerExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 
 /**
- * Class ApiPlatformTest
+ * #Class ApiPlatformTest
+ *
+ * This class provides simple CRUD tests for an ApiPlatform-Entity
+ *
+ * Extend this class and provide a
+ * RESOURCE_URI (e.g. '/api/languages/') and a
+ * RESOURCE_CLASS (e.g. Language::class)
+ * by overriding the consts in the TestCase.
+ *
+ * When you run your test the CRUD tests provided by this class will be executed as well,
+ * so you can focus on the special methods of your entity.
+ *
  * @package App\Tests\Api
  */
-abstract class ApiPlatformTestCase extends WebTestCase
+abstract class ApiPlatformTestCase extends ApiPlatformBaseTestCase
 {
-    /**
-     * @var KernelBrowser
-     */
-    protected static $kernelBrowser;
+    // This trait provided by AliceBundle will take care of refreshing the database content to a known state before each test
+    use RefreshDatabaseTrait;
 
-    /** @var Serializer */
-    protected static $serializer;
-
-    /** @var Annotationreader */
-    protected static $annotationReader;
-
-    /** @var string[] */
-    protected static $headers;
-
-    public function setUp(): void
-    {
-        parent::setUp();
-        self::init();
-    }
-
-    public static function init(): void
-    {
-        self::$kernelBrowser = self::createClient([], self::$headers ?? []);
-        if (!self::$container) {
-            self::$kernel = self::bootKernel();
-            self::$container = self::$kernel->getContainer();
-        }
-
-        $encoders = [new JsonEncoder()];
-        $normalizers = [new DateTimeNormalizer(), new ObjectNormalizer()];
-        self::$serializer = new Serializer($normalizers, $encoders);
-
-        if (!self::$annotationReader) {
-            self::$annotationReader = new AnnotationReader();
-        }
-    }
+    /** Endpoint to test (override in your testcase) */
+    protected const RESOURCE_URI = '/';
+    /** Entity class to test (override in your testcase) */
+    protected const RESOURCE_CLASS = '';
 
     /**
-     * @param mixed|null $content
-     * @return string|null $json
+     * ##Create a new TestEntity
+     * Use a simple instance of the class that gets tested (e.g. new Book())
+     * and set the attributes to a valid state. (not null, etc.)
+     * This entity will get inserted to the database during the testCreateAResource.
+     * This entity will be used to update a random database entity in testUpdateAResource
+     * @return object of type static::RESOURCE_CLASS
+     * @see testCreateAResource, testUpdateAResource
      */
-    public static function serializeToJsonForPOST($content): ?string
+    abstract protected function getTestEntity(): object;
+
+    /**
+     * ##Create an invalid TestEntity
+     * The invalid value will be posted to the static::RESOURCE_URI and an error is expected.
+     * Defaults to a simple stdClass
+     * @return object
+     * @see testThrowErrorWhenDataAreInvalid
+     */
+    protected function getInvalidTestEntity(): object
     {
-        if (!$content) {
-            return null;
-        } elseif (is_string($content)) {
-            return $content;
-        } elseif ($content instanceof \stdClass) {
-            return self::$serializer->encode($content, 'json');
-        } else {
-            return self::$serializer->serialize($content, 'json');
-        }
+        return new \stdClass();
+    }
+
+    //<editor-fold desc="*** CRUD Tests ***">
+
+    /**
+     * Test read on the collection.
+     * Ensures:
+     *  * the count is > 0
+     *  * the hydra:totalItems matches the hydra:members count as well
+     * @return void
+     * @throws TransportExceptionInterface
+     */
+    public function testReadAResourceCollection(): void
+    {
+        $this->request(
+            url: static::RESOURCE_URI,
+            method: 'GET'
+        );
+        $this->assertReadAResourceCollection();
     }
 
     /**
-     * @param string $uri
-     * @param string $method
-     * @param object|string|null $content Objects will be serialized and
-     * strings will be treated as already serialized json.
-     * @param array $files
-     * @param array $parameters
-     * @param array $headers
-     * @param bool $changeHistory
-     *
-     * @return Response
+     * Test read on a single resource
+     * Ensures:
+     *  * Status-Code 200,
+     *  * Response is ld+json,
+     *  * Read Entity has an id
+     *  * Optional 'createdAt', 'updatedAt' are not empty
+     * @return void
+     * @throws TransportExceptionInterface
+     * @throws \Exception
+     * @throws DecodingExceptionInterface
      */
-    protected function request(
-        string $uri,
-        string $method = 'GET',
-        $content = null,
-        array $files = [],
-        array $parameters = [],
-        array $headers = [],
-        bool $changeHistory = true
-    ): Response {
-        $server = [
-            'CONTENT_TYPE' => 'application/ld+json',
-            'HTTP_ACCEPT' => 'application/ld+json',
-        ];
-        if ($method === 'PATCH') {
-            $server['CONTENT_TYPE'] = 'application/merge-patch+json';
-        }
-        $server = array_merge($server, $headers);
-
-        // POST request doesn't follow 301, symfony creates 301 for trailing slash routes
-        $uri = rtrim($uri, '/');
-        $json = self::serializeToJsonForPOST($content);
-
-        self::$kernelBrowser->request(
-            $method,
-            $uri,
-            $parameters,
-            $files,
-            $server,
-            $json,
-            $changeHistory
+    public function testReadAResource(): void
+    {
+        $resource = $this->findOne(static::RESOURCE_CLASS);
+        $this->request(
+            url: static::RESOURCE_URI . $resource->getId(),
+            method: 'GET'
         );
 
-        return self::$kernelBrowser->getResponse();
+        $jsonResource = $this->decodeToJson($resource);
+        $this->assertReadAResource($jsonResource);
+
     }
 
     /**
-     * @param $class
-     * @param array $criteria
-     *
-     * @return mixed
+     * Test the update route
+     * Use the TestEntity to be inserted into the database.
+     * Ensures:
+     *  * Status-Code 200
+     *  * ld+json format
+     *  * updated values are equal to the test entity
+     * @return void
+     * @throws \Exception | ExceptionInterface
      */
-    abstract protected function findOne(string $class, array $criteria = []);
-
-
-    /**
-     * @param object $transmittedData
-     *
-     * @throws ReflectionException
-     */
-    protected function assertCreateSuccess(object $transmittedData): void
+    public function testUpdateAResource(): void
     {
-        $json = $this->getJson();
-        $this->assertHasId();
+        $entity = $this->findOne(static::RESOURCE_CLASS);
+        $resource = $this->getTestEntity();
+        $jsonResource = $this->decodeToJson($resource);
 
-        foreach (['createdAt', 'updatedAt'] as $dateProp) {
-            if (property_exists($transmittedData, $dateProp)) {
-                $this->assertArrayHasKey($dateProp, $json);
-                $this->assertIsString($json[$dateProp]);
-                $this->assertNotEmpty($json[$dateProp]);
-            }
-        }
-
-        $getTypeMapping = [
-            'boolean' => 'assertIsBool',
-            'bool' => 'assertIsBool',
-            'integer' => 'assertIsInt',
-            'int' => 'assertIsInt',
-            'double' => 'assertIsFloat',
-            'string' => 'assertIsString',
-            'date' => 'assertIsString',
-            'array' => 'assertIsArray',
-            'object' => 'assertIsObject',
-        ];
-
-        try {
-            $reflectionClass = new ReflectionClass($transmittedData);
-        } catch (ReflectionException $e) {
-            $this->assertFalse(true, 'Failed due to ReflectionException');
-            return;
-        }
-        foreach ($reflectionClass->getProperties() as $reflectionProperty) {
-            if (!$this->isPropertyReadable($reflectionProperty)) {
-                continue;
-            }
-
-            $propertyValue = $this->getPropertyValue(
-                $reflectionProperty,
-                $transmittedData
-            );
-
-            if ($propertyValue !== null) {
-                $this->assertArrayHasKey($reflectionProperty->name, $json);
-            }
-
-            if ($reflectionProperty->name === 'createdAt'
-                || $reflectionProperty->name === 'updatedAt') {
-                continue;
-            }
-
-            $dataType = $this->getPropertyType($reflectionProperty);
-            if (in_array($dataType, array_keys($getTypeMapping), true)) {
-                if ($json[$reflectionProperty->name] !== null) {
-                    $this->{$getTypeMapping[$dataType]}(
-                        $json[$reflectionProperty->name]
-                    );
-                } else {
-                    $this->assertNull($json[$reflectionProperty->name]);
-                }
-            }
-
-            if ($propertyValue !== null) {
-                if ($propertyValue instanceof ArrayCollection) {
-                    $this->assertEquals(
-                        $propertyValue->toArray(),
-                        $json[$reflectionProperty->name]
-                    );
-                } elseif ($propertyValue instanceof \DateTime) {
-                    $this->assertEquals(
-                        $propertyValue,
-                        new \DateTime($json[$reflectionProperty->name])
-                    );
-                } elseif (is_object($propertyValue)) {
-                    //SKIP assertion, because it is probably a entity.
-                    //And entities will be returned as an url instead of the whole object.
-                    //So any assertion will fail.
-                } else {
-                    $this->assertEquals(
-                        $propertyValue,
-                        $json[$reflectionProperty->name]
-                    );
-                }
-            }
-        }
-    }
-
-    /**
-     * @return array
-     */
-    protected function getJson(): array
-    {
-        return json_decode(
-            $this->lastResponse()->getContent(),
-            true,
-            512,
-            JSON_THROW_ON_ERROR
+        $this->request(
+            url: static::RESOURCE_URI . $entity->getId(),
+            method: 'PUT',
+            content: $jsonResource
         );
+
+        $this->assertUpdatedAResource($jsonResource);
     }
 
     /**
-     * @return Response
+     * Test the create route
+     * Add the test entity to the database and ensure status 200
+     * @return void
+     * @throws TransportExceptionInterface
+     * @throws ClientExceptionInterface
+     * @throws DecodingExceptionInterface
+     * @throws RedirectionExceptionInterface
+     * @throws ServerExceptionInterface
      */
-    protected function lastResponse(): Response
+    public function testCreateAResource(): void
     {
-        return self::$kernelBrowser->getResponse();
-    }
-
-    /**
-     *
-     */
-    protected function assertHasId(): void
-    {
-        $json = $this->getJson();
-        $this->assertArrayHasKey('id', $json);
-        $this->assertIsInt($json['id']);
-        $this->assertNotEmpty($json['id']);
-    }
-
-    /**
-     * @param ReflectionProperty $reflectionProperty
-     *
-     * @return bool
-     */
-    private function isPropertyReadable(ReflectionProperty $reflectionProperty): bool
-    {
-        /** @var bool[] $readables */
-        $readables =
-            array_map(
-                function (ApiProperty $x) {
-                    return $x->readable;
-                },
-                array_filter(
-                    self::$annotationReader->getPropertyAnnotations(
-                        $reflectionProperty
-                    ),
-                    function ($x) {
-                        return $x instanceof ApiProperty;
-                    }
-                )
-            );
-        return !in_array(false, $readables, true);
-    }
-
-    /**
-     * @param ReflectionProperty $reflectionProperty
-     * @param object $data
-     *
-     * @return mixed
-     * @throws ReflectionException
-     */
-    private function getPropertyValue(
-        ReflectionProperty $reflectionProperty,
-        object $data
-    ) {
-        $reflectionClass = new ReflectionClass($data);
-        if ($reflectionProperty->isPublic()) {
-            return $data->{$reflectionProperty->name};
-        }
-
-        if ($reflectionClass->hasMethod(
-            'get' . ucfirst($reflectionProperty->name)
-        )
-        ) {
-            return $data->{$reflectionClass->getMethod(
-                'get' . ucfirst($reflectionProperty->name)
-            )->name}();
-        }
-
-        throw new \RuntimeException('Can\'t get property value!');
-    }
-
-    private function getPropertyType(ReflectionProperty $reflectionProperty)
-    {
-        $annotations = self::$annotationReader->getPropertyAnnotations(
-            $reflectionProperty
+        $resource = $this->getTestEntity();
+        $jsonResource = $this->decodeToJson($resource);
+        $this->request(
+            url: static::RESOURCE_URI,
+            method: 'POST',
+            content: $jsonResource
         );
-        foreach ($annotations as $annotation) {
-            $reflectionAnnotation = new ReflectionClass($annotation);
-            if (in_array(
-                $reflectionAnnotation->getNamespaceName(),
-                [
-                    'Doctrine\ODM\MongoDB\Mapping\Annotations',
-                    'Doctrine\ORM\Mapping\Annotation'
-                ]
-            )
-            ) {
-                /** @var Doctrine\ODM\MongoDB\Mapping\Annotations|Doctrine\ORM\Mapping\Annotation $annotation */
-                return $annotation->type;
-            }
-        }
-    }
 
-
-    protected function assertHasViolations(): void
-    {
-        $json = $this->getJson();
-        $this->assertArrayHasKey('violations', $json);
+        $this->assertCreateAResource($jsonResource);
     }
 
     /**
-     * @param object $data
+     * Test the delete-route by getting a random resource from the database and ensuring status code 204
+     * @return void
+     * @throws \Exception|ExceptionInterface
      */
-    protected function assertViolations(object $data): void
+    public function testDeleteAResource(): void
     {
-        $json = $this->getJson();
-        $this->assertArrayHasKey('violations', $json);
-        $violations = $json['violations'];
-        $violationPropertyIndexes = array_flip(
-            array_column($violations, 'propertyPath')
+        $resource = $this->findOne(static::RESOURCE_CLASS);
+        $this->request(
+            url: static::RESOURCE_URI . $resource->getId(),
+            method: 'DELETE'
         );
-        $calculatedViolationCount = 0;
-        try {
-            $reflectionClass = new ReflectionClass($data);
-        } catch (ReflectionException $e) {
-            $this->assertFalse(true, 'Failed due to ReflectionException');
-            return;
-        }
-        foreach ($reflectionClass->getProperties() as $reflectionProperty) {
-            /** @var ReflectionProperty $reflectionProperty */
-            foreach (self::$annotationReader->getPropertyAnnotations(
-                $reflectionProperty
-            ) as $propertyAnnotation) {
-                try {
-                    $reflectionAnnotation = new ReflectionClass($propertyAnnotation);
-                } catch (ReflectionException $e) {
-                    $this->assertFalse(true, 'Failed due to ReflectionException');
-                    continue;
-                }
-                if ($reflectionAnnotation->getNamespaceName()
-                    !== 'Symfony\Component\Validator\Constraints'
-                ) {
-                    continue;
-                }
-                $propertyValue = $this->getPropertyValue($reflectionProperty, $data);
-                $propertyType = $this->getNonAliasType(strtolower(gettype($propertyValue)));
 
-                if ($propertyAnnotation instanceof Type
-                    && $propertyAnnotation->type === 'numeric') {
-                    throw new \RuntimeException(
-                        'The assertion type can not be "numeric"! '
-                        . 'This package is not programmed to deal with this type. '
-                        . 'Please edit the entity "' . $reflectionProperty->class . '". '
-                        . 'Change the annotation of the variable "' . $reflectionProperty->name . '". '
-                        . 'Change "@Assert\Type(type="numeric")" to either "integer" or "float". '
-                        . 'If your integer can be bigger than 19 digits then choose float.'
-                    );
-                }
-
-                if ($propertyAnnotation instanceof NotBlank
-                    && empty($propertyValue)
-                ) {
-                    /** @var NotBlank $propertyAnnotation */
-                    $expectedMessage = $propertyAnnotation->message;
-                    $calculatedViolationCount++;
-                } elseif ($propertyAnnotation instanceof NotNull
-                    && $propertyValue === null
-                ) {
-                    /** @var NotNull $propertyAnnotation */
-                    $expectedMessage = $propertyAnnotation->message;
-                    $calculatedViolationCount++;
-                } elseif ($propertyAnnotation instanceof Type
-                    && $propertyValue !== null
-                    && $propertyType !== $this->getNonAliasType($propertyAnnotation->type)
-                ) {
-                    /** @var Type $propertyAnnotation */
-                    $expectedMessage = str_replace(
-                        '{{ type }}',
-                        $propertyAnnotation->type,
-                        $propertyAnnotation->message
-                    );
-                    $calculatedViolationCount++;
-                } else {
-                    //TODO Add more assertion types
-                    continue;
-                }
-
-                $index = $violationPropertyIndexes[$reflectionProperty->name];
-                $this->assertArrayHasKey('propertyPath', $violations[$index]);
-                $this->assertEquals(
-                    $reflectionProperty->name,
-                    $violations[$index]['propertyPath']
-                );
-                $this->assertEquals(
-                    $expectedMessage,
-                    $violations[$index]['message']
-                );
-            }
-        }
-        $this->assertCount($calculatedViolationCount, $violations);
-    }
-
-    private function getNonAliasType($type)
-    {
-        $types = [
-            'boolean' => 'bool',
-            'integer' => 'int',
-            'double' => 'float',
-        ];
-        if (in_array($type, array_keys($types), true)) {
-            return $types[$type];
-        }
-        return $type;
+        $this->assertDeleteAResource($resource->getId());
     }
 
     /**
-     *
+     * TODO: this
+     * We try to POST invalid data to the RESOURCE_URI and ensure an exception is thrown
+     * @return void
+     * @throws TransportExceptionInterface
      */
-    protected function assertLdJsonHeader(): void
+    public function testThrowErrorWhenDataAreInvalid(): void
     {
-        self::assertResponseHeaderSame(
-            'Content-Type',
-            'application/ld+json; charset=utf-8'
-        );
+        //TODO: this is not okay... try catch maybe... not sure
+        static::$client->getKernelBrowser()->catchExceptions(false);
+        $this->expectException(\Exception::class); // TODO: MethodNotAllowedHttpException::class
+        $this->request(static::RESOURCE_URI, 'POST', $this->getInvalidTestEntity());
+        //TODO: this is not reached exception is thrown....
+        self::assertResponseStatusCodeSame(STATUS::HTTP_OK);
     }
 
-    /**
-     *
-     */
-    protected function assertHasGedmoDates(): void
-    {
-        $json = $this->getJson();
-        foreach (['createdAt', 'updatedAt'] as $dateProp) {
-            $this->assertArrayHasKey($dateProp, $json);
-            $this->assertIsString($json[$dateProp]);
-            $this->assertNotEmpty($json[$dateProp]);
-        }
-    }
+    //</editor-fold>
 
-    /**
-     * @param $newValue
-     * @param $oldValue
-     * @param $responseValue
-     */
-    protected function assertUpdateSuccess($newValue, $oldValue): void
-    {
-        $this->assertNotEquals($oldValue, $newValue);
-    }
-
-    /**
-     * @param int $count
-     */
-    protected function assertCollectionCount(int $count): void
-    {
-        $json = $this->getJson();
-        $this->assertArrayHasKey('hydra:totalItems', $json);
-        $this->assertEquals($count, $json['hydra:totalItems']);
-
-        $this->assertArrayHasKey('hydra:member', $json);
-        $this->assertCount($count, $json['hydra:member']);
-    }
-
-    protected function assertResourcePropertyCount(int $count): void
-    {
-        $json = $this->getJson();
-        $this->assertCount($count, $json);
-    }
-
-    protected function assertTimestampsForUpdate(int $allowedTimeDifferenceInSeconds = 120)
-    {
-        $this->assertHasGedmoDates();
-
-        $json = $this->getJson();
-
-        $updatedAt = new \DateTime($json['updatedAt']);
-        $difference = $updatedAt->diff(new \DateTime());
-
-        $this->assertLessThan(
-            $allowedTimeDifferenceInSeconds,
-            $difference->s,
-            "updated_at was last touched more than $allowedTimeDifferenceInSeconds seconds ago"
-        );
-    }
-
-    protected function assertTimestampsForCreate(int $allowedTimeDifferenceInSeconds = 120)
-    {
-        $this->assertHasGedmoDates();
-
-        $json = $this->getJson();
-
-        $this->assertArrayNotHasKey('deletedAt', $json);
-
-        foreach (['createdAt', 'updatedAt'] as $dateProp) {
-            $dateValue = new \DateTime($json[$dateProp]);
-            $difference = $dateValue->diff(new \DateTime());
-
-            $this->assertLessThan(
-                $allowedTimeDifferenceInSeconds,
-                $difference->s,
-                "$dateProp was last touched more than $allowedTimeDifferenceInSeconds seconds ago"
-            );
-        }
-    }
-
-    protected function assertDeletedAt(string $class, int $id, int $allowedTimeDifferenceInSeconds = 120)
-    {
-        $entity = $this->findOne($class, ['id' => $id]);
-
-        $this->assertObjectHasAttribute('deletedAt', $entity);
-
-        $reflectionClass = new ReflectionClass($entity);
-        $dateValue = $entity->{$reflectionClass->getMethod('getDeletedAt')->name}();
-        $difference = $dateValue->diff(new \DateTime());
-
-        $this->assertLessThan(
-            $allowedTimeDifferenceInSeconds,
-            $difference->s,
-            "deleted_at was last touched more than $allowedTimeDifferenceInSeconds seconds ago"
-        );
-    }
-
-    abstract protected function testRetrieveTheResourceList(): void;
-
-    abstract protected function testRetrieveAResource(): void;
-
-    abstract protected function testUpdateAResource(): void;
-
-    abstract protected function testThrowErrorWhenDataAreInvalid(): void;
-
-    abstract protected function testCreateAResource(): void;
-
-    abstract protected function testDeleteAResource(): void;
-
-    /**
-     * @param ReflectionProperty $reflectionProperty
-     *
-     * @return bool
-     */
-    private function isPropertyWritable(ReflectionProperty $reflectionProperty): bool
-    {
-        /** @var bool[] $writables */
-        $writables =
-            array_map(
-                static function (ApiProperty $x) {
-                    return $x->writable;
-                },
-                array_filter(
-                    self::$annotationReader->getPropertyAnnotations(
-                        $reflectionProperty
-                    ),
-                    static function ($x) {
-                        return $x instanceof ApiProperty;
-                    }
-                )
-            );
-        return !in_array(false, $writables, true);
-    }
 }
