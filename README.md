@@ -9,7 +9,7 @@ You may want to have a look at: https://github.com/epubli/api-platform-traits
 If you want a simple CRUD Testing for your entity just extend the ApiPlatformTestCase 
 and override the endpoint and the resource class 
 
-``` php
+```php
 /** Endpoint to test (override in your testcase) */
 protected const RESOURCE_URI = '/';
 /** Entity class to test (override in your testcase) */
@@ -21,7 +21,7 @@ Since v0.3.0 we only support ORM.
 
 ##### ORM Example Test class
 
-``` php
+```php
 class ExampleTest extends ApiPlatformTestCase
 {
 
@@ -46,7 +46,7 @@ With this setup common CRUD-Tests will be executed.
 If you want to adjust the behaviour of some Test-Cases just override the default Test-Case
 
 For e.g.
-``` php
+```php
     public function testReadAResourceCollection(): void
     {
         parent::testReadAResourceCollection();
@@ -65,9 +65,19 @@ This can serialize attributes you don't want to compare, especially if you have 
 
 For this case you can provide a list of ignored attributes. These will be skipped during serialization.
 
-```
+```php
     protected function getIgnoredAttributes(): array
     {
         return ['children'];
+    }
+```
+
+If you do not have all CRUD Operations available you can override the unsupported test with a route not available test to ensure this.
+
+```php
+    public function testCreateAResource(): void
+    {
+        $this->testThrowErrorWhenRouteIsForbidden();
+        parent::testCreateAResource();
     }
 ```

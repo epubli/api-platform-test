@@ -7,7 +7,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\Mapping\Column;
 use Hautelook\AliceBundle\PhpUnit\RefreshDatabaseTrait;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
-use Symfony\Component\HttpFoundation\Response as STATUS;
+use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\DecodingExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
@@ -177,13 +177,19 @@ abstract class ApiPlatformTestCase extends ApiPlatformBaseTestCase
      */
     public function testThrowErrorWhenDataAreInvalid(): void
     {
-        //TODO: this is not okay... try catch maybe... not sure
-        /** @noinspection PhpInternalEntityUsedInspection */
-        static::$client->getKernelBrowser()->catchExceptions(false);
-        $this->expectException(\Exception::class); // TODO: MethodNotAllowedHttpException::class
+        $this->disableSymfonyExceptionHandling();
+        $this->expectException(\Exception::class);
         $this->request(static::RESOURCE_URI, 'POST', $this->getInvalidTestEntity());
-        //TODO: this is not reached exception is thrown....
-        self::assertResponseStatusCodeSame(STATUS::HTTP_OK);
+    }
+
+    /**
+     * We try to access an invalid route and expect a MethodNotAllowedHttpException is thrown
+     */
+    protected function testThrowErrorWhenRouteIsForbidden(): void
+    {
+        /** @noinspection PhpInternalEntityUsedInspection */
+        $this->disableSymfonyExceptionHandling();
+        $this->expectException(MethodNotAllowedHttpException::class);
     }
 
     //</editor-fold>

@@ -113,6 +113,13 @@ class ApiPlatformBaseTestCase extends ApiTestCase
     {
         return [];
     }
+
+    public static function disableSymfonyExceptionHandling(): void
+    {
+        /** @noinspection PhpInternalEntityUsedInspection */
+        static::$client->getKernelBrowser()->catchExceptions(false);
+    }
+
     //</editor-fold>
 
     //<editor-fold desc="*** Request/Response helper ***">
