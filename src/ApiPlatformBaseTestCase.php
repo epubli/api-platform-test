@@ -429,7 +429,7 @@ class ApiPlatformBaseTestCase extends ApiTestCase
      * @throws TransportExceptionInterface
      * @throws \Exception
      */
-    protected function assertUpdatedAResource(array $jsonResource): void
+    protected function assertUpdateAResource(array $jsonResource): void
     {
         self::assertResponseStatusCodeSame(STATUS::HTTP_OK);
         $this->assertLdJsonHeader();
@@ -438,14 +438,14 @@ class ApiPlatformBaseTestCase extends ApiTestCase
         // assert the response contains the new values
         $this->assertJsonContains($jsonResource);
         // assert timestamps got updated
-        $this->assertTimestampsForUpdate($jsonResponse);
+        $this->assertUpdateAResourceTimestamps($jsonResponse);
     }
 
     /**
      * Assert that the updatedAt attribute is set and did not take too long
      * @throws \Exception
      */
-    protected function assertTimestampsForUpdate(array $jsonResponse, int $allowedTimeDifferenceInSeconds = 120)
+    protected function assertUpdateAResourceTimestamps(array $jsonResponse, int $allowedTimeDifferenceInSeconds = 120)
     {
         $this->assertTimestampable($jsonResponse);
         $updatedAt = new \DateTime($jsonResponse['updatedAt']);

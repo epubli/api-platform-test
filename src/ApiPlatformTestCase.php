@@ -2,7 +2,11 @@
 
 namespace Epubli\ApiPlatform\TestBundle;
 
+use ApiPlatform\Core\Annotation\ApiProperty;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\ORM\Mapping\Column;
 use Hautelook\AliceBundle\PhpUnit\RefreshDatabaseTrait;
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\HttpFoundation\Response as STATUS;
 use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\DecodingExceptionInterface;
@@ -125,7 +129,7 @@ abstract class ApiPlatformTestCase extends ApiPlatformBaseTestCase
             content: $jsonResource
         );
 
-        $this->assertUpdatedAResource($jsonResource);
+        $this->assertUpdateAResource($jsonResource);
     }
 
     /**
@@ -185,4 +189,287 @@ abstract class ApiPlatformTestCase extends ApiPlatformBaseTestCase
 
     //</editor-fold>
 
+    //<editor-fold desc="'*** Deprecated on v1.0.0 ***'">
+
+    /**
+     * Deprecated on v1.0.0 - renamed
+     * @return array
+     * @throws TransportExceptionInterface
+     * @deprecated use getResponseAsJson instead
+     */
+    public function getJson(): array
+    {
+        return $this->getResponseAsJson();
+    }
+
+    /**
+     * Deprecated on v1.0.0 - non-static
+     * @param mixed|null $content
+     * @return string|null $json
+     * @deprecated use non-static serializeToJson with serializeContext instead
+     */
+    protected static function serializeToJsonForPOST(mixed $content): ?string
+    {
+        if (!$content) {
+            return null;
+        } elseif (is_string($content)) {
+            return $content;
+        } elseif ($content instanceof \stdClass) {
+            return self::$serializer->encode($content, 'json');
+        } else {
+            return self::$serializer->serialize($content, 'json');
+        }
+    }
+
+    /**
+     * Deprecated on v1.0.0 - renamed
+     * @return object
+     * @deprecated use getTestEntity instead
+     */
+    protected function getDemoEntity(): object
+    {
+        return $this->getTestEntity();
+    }
+
+    /**
+     * Deprecated on v1.0.0 - renamed
+     * @return void
+     * @throws TransportExceptionInterface
+     * @deprecated use testReadAResourceCollection instead
+     */
+    protected function testRetrieveTheResourceList(): void
+    {
+        $this->testReadAResourceCollection();
+    }
+
+    /**
+     * Deprecated on v1.0.0 - renamed
+     * @return void
+     * @throws TransportExceptionInterface
+     * @deprecated use testReadResource instead
+     */
+    protected function testRetrieveAResource(): void
+    {
+        $this->testReadAResource();
+    }
+
+    /**
+     * Deprecated on v1.0.0
+     * @return void
+     * @throws TransportExceptionInterface
+     * @deprecated use assertTimestampable instead
+     */
+    protected function assertHasGedmoDates(): void
+    {
+        $json = $this->getResponseAsJson();
+        foreach (['createdAt', 'updatedAt'] as $dateProp) {
+            $this->assertArrayHasKey($dateProp, $json);
+            $this->assertIsString($json[$dateProp]);
+            $this->assertNotEmpty($json[$dateProp]);
+        }
+    }
+
+    /**
+     * Deprecated on v1.0.0 - not needed anymore
+     * @param \ReflectionProperty $reflectionProperty
+     * @return bool
+     * @deprecated not needed anymore
+     */
+    protected function isPropertyReadable(\ReflectionProperty $reflectionProperty): bool
+    {
+        /** @var bool[] $readables */
+        $readables =
+            array_map(
+                function (ApiProperty $x) {
+                    return $x->readable;
+                },
+                array_filter(
+                    self::$annotationReader->getPropertyAnnotations(
+                        $reflectionProperty
+                    ),
+                    function ($x) {
+                        return $x instanceof ApiProperty;
+                    }
+                )
+            );
+        return !in_array(false, $readables, true);
+    }
+
+    /**
+     * Deprecated on v1.0.0 - not needed anymore
+     * @param \ReflectionProperty $reflectionProperty
+     * @return ?string
+     * @deprecated not needed anymore
+     */
+    protected function getPropertyType(\ReflectionProperty $reflectionProperty): ?string
+    {
+        $annotations = self::$annotationReader->getPropertyAnnotations(
+            $reflectionProperty
+        );
+        foreach ($annotations as $annotation) {
+            $reflectionAnnotation = new \ReflectionClass($annotation);
+            if ($reflectionAnnotation->getNamespaceName() == 'Doctrine\ORM\Mapping\Column'
+            ) {
+                /** @var Column $annotation */
+                return $annotation->type;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Deprecated on v1.0.0 - not needed anymore
+     * @param $newValue
+     * @param $oldValue
+     * @deprecated not needed anymore
+     */
+    protected function assertUpdateSuccess($newValue, $oldValue): void
+    {
+        $this->assertNotEquals($oldValue, $newValue);
+    }
+
+    /**
+     * Deprecated on v1.0.0 - not needed anymore
+     * @param object $transmittedData
+     * @param array $jsonResponse
+     * @throws \ReflectionException
+     * @deprecated not needed anymore
+     */
+    protected function assertCreateSuccess(object $transmittedData, array $jsonResponse): void
+    {
+//        $this->assertHasId($transmittedData, $jsonResponse);
+        $this->assertTimestampable($jsonResponse);
+
+        $getTypeMapping = [
+            'boolean' => 'assertIsBool',
+            'bool' => 'assertIsBool',
+            'integer' => 'assertIsInt',
+            'int' => 'assertIsInt',
+            'double' => 'assertIsFloat',
+            'string' => 'assertIsString',
+            'date' => 'assertIsString',
+            'array' => 'assertIsArray',
+            'object' => 'assertIsObject',
+        ];
+
+        try {
+            $reflectionClass = new \ReflectionClass($transmittedData);
+        } catch (\Exception) {
+            $this->fail('Failed due to ReflectionException');
+        }
+        foreach ($reflectionClass->getProperties() as $reflectionProperty) {
+            if (!$this->isPropertyReadable($reflectionProperty)) {
+                continue;
+            }
+
+            $propertyValue = $this->getPropertyValue(
+                $reflectionProperty,
+                $transmittedData
+            );
+
+            if ($propertyValue !== null) {
+                $this->assertArrayHasKey($reflectionProperty->name, $jsonResponse);
+            }
+
+            if ($reflectionProperty->name === 'createdAt'
+                || $reflectionProperty->name === 'updatedAt') {
+                continue;
+            }
+
+            $dataType = $this->getPropertyType($reflectionProperty);
+            if (in_array($dataType, array_keys($getTypeMapping), true)) {
+                if ($jsonResponse[$reflectionProperty->name] !== null) {
+                    $this->{$getTypeMapping[$dataType]}(
+                        $jsonResponse[$reflectionProperty->name]
+                    );
+                } else {
+                    $this->assertNull($jsonResponse[$reflectionProperty->name]);
+                }
+            }
+
+            if ($propertyValue !== null) {
+                if ($propertyValue instanceof ArrayCollection) {
+                    $this->assertEquals(
+                        $propertyValue->toArray(),
+                        $jsonResponse[$reflectionProperty->name]
+                    );
+                } elseif ($propertyValue instanceof \DateTime) {
+                    $this->assertEquals(
+                        $propertyValue,
+                        new \DateTime($jsonResponse[$reflectionProperty->name])
+                    );
+                } elseif (is_object($propertyValue)) {
+                    //SKIP assertion, because it is probably an entity.
+                    //And entities will be returned as an url instead of the whole object.
+                    //So any assertion will fail.
+                } else {
+                    $this->assertEquals(
+                        $propertyValue,
+                        $jsonResponse[$reflectionProperty->name]
+                    );
+                }
+            }
+        }
+    }
+
+    /**
+     * Deprecated on v1.0.0 - not needed anymore
+     * @param int $allowedTimeDifferenceInSeconds
+     * @throws TransportExceptionInterface
+     * @deprecated not needed anymore
+     */
+    protected function assertTimestampsForCreate(int $allowedTimeDifferenceInSeconds = 120)
+    {
+        $this->assertCreateAResourceTimestamps();
+    }
+
+    /**
+     * Deprecated on v1.0.0 - not needed anymore
+     * @return void
+     * @throws TransportExceptionInterface
+     * @deprecated not needed anymore
+     */
+    protected function assertHasId()
+    {
+        $json = $this->getJson();
+        $this->assertArrayHasKey('id', $json);
+        $this->assertIsInt($json['id']);
+        $this->assertNotEmpty($json['id']);
+    }
+
+    /**
+     * Deprecated on v1.0.0 - not needed anymore
+     * @var KernelBrowser
+     * @deprecated its internal via the http client .... dont use it?!
+     */
+    static KernelBrowser $kernelBrowser;
+
+    public function setUp(): void
+    {
+        parent::setUp();
+        self::$kernelBrowser = self::$client->getKernelBrowser(); // TODO: Remove next version
+    }
+
+    /**
+     * Deprecated on v1.0.0 - renamed and modified
+     * Assert that the updatedAt attribute is set and did not take too long
+     * @throws \Exception
+     * @throws TransportExceptionInterface
+     * @deprecated use assertUpdateAResourceTimestamps instead
+     */
+    protected function assertTimestampsForUpdate(int $allowedTimeDifferenceInSeconds = 120)
+    {
+        $jsonResponse = $this->getResponseAsJson();
+        $this->assertTimestampable($jsonResponse);
+        $updatedAt = new \DateTime($jsonResponse['updatedAt']);
+        $difference = $updatedAt->diff(new \DateTime());
+        $this->assertLessThan(
+            $allowedTimeDifferenceInSeconds,
+            $difference->s,
+            "updated_at was last touched more than $allowedTimeDifferenceInSeconds seconds ago"
+        );
+    }
+
+
+    //</editor-fold>
 }
