@@ -2,21 +2,28 @@
 
 namespace Epubli\ApiPlatform\TestBundle;
 
-use Hautelook\AliceBundle\PhpUnit\RefreshMongoDbTrait;
+// use Hautelook\AliceBundle\PhpUnit\RefreshMongoDbTrait; - We do not include this any more
+use Exception;
 
+/**
+ * @deprecated We handle different databases by getting the 'doctrine' container and relying on it
+ */
 abstract class OdmApiPlatformTestCase extends ApiPlatformTestCase
 {
-    use RefreshMongoDbTrait;
+    // use RefreshMongoDbTrait; we do not include this anymore
 
-    protected function findOne(string $class, array $criteria = [])
+    /**
+     * @throws Exception
+     * @deprecated don't use this class anymore
+     */
+    protected function findOne(string $class, array $criteria = []): mixed
     {
-        if (!self::$container) {
-            self::$kernel = self::bootKernel();
-            self::$container = self::$kernel->getContainer();
-        }
-        $manager = self::$container->get('doctrine_mongodb.odm.document_manager');
-        return $manager->getRepository($class)->findOneBy($criteria);
+     return parent::findOne($class, $criteria);
     }
 
-    abstract protected function getDemoDocument();
+    /**
+     * @deprecated removed special mongodb handling
+     * @return mixed
+     */
+    abstract protected function getDemoDocument(): mixed;
 }
