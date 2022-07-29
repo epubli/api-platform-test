@@ -364,7 +364,7 @@ class ApiPlatformBaseTestCase extends ApiTestCase
     }
 
     /**
-     * Assert that the response constains $count hydra:members
+     * Assert that the response contains $count hydra:members
      * @throws TransportExceptionInterface
      */
     protected function assertCollectionCount(int $count, ?array $jsonResponse = null): void
@@ -535,7 +535,7 @@ class ApiPlatformBaseTestCase extends ApiTestCase
             "deleted_at was last touched more than $allowedTimeDifferenceInSeconds seconds ago"
         );// should not be too long ago
 
-        // enable the softdeletable filter for the following tests
+        // enable the softdeleteable filter for the following tests
         $filters->enable('softdeleteable');
     }
 

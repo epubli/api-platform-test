@@ -2,7 +2,7 @@
 
 namespace Epubli\ApiPlatform\TestBundle;
 
-// use Hautelook\AliceBundle\PhpUnit\RefreshMongoDbTrait; - We do not include this any more
+// use Hautelook\AliceBundle\PhpUnit\RefreshMongoDbTrait; - We do not include this anymore
 use Exception;
 
 /**

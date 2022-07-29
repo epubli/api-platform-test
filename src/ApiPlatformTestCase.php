@@ -76,8 +76,7 @@ abstract class ApiPlatformTestCase extends ApiPlatformBaseTestCase
     public function testReadAResourceCollection(): void
     {
         $this->request(
-            url: static::RESOURCE_URI,
-            method: 'GET'
+            url: static::RESOURCE_URI
         );
         $this->assertReadAResourceCollection();
     }
@@ -98,8 +97,7 @@ abstract class ApiPlatformTestCase extends ApiPlatformBaseTestCase
     {
         $resource = $this->findOne(static::RESOURCE_CLASS);
         $this->request(
-            url: static::RESOURCE_URI . $resource->getId(),
-            method: 'GET'
+            url: static::RESOURCE_URI . $resource->getId()
         );
 
         $jsonResource = $this->decodeToJson($resource);
@@ -133,7 +131,7 @@ abstract class ApiPlatformTestCase extends ApiPlatformBaseTestCase
     }
 
     /**
-     * Test the create route
+     * Test the create-route
      * Add the test entity to the database and ensure status 200
      * @return void
      * @throws TransportExceptionInterface
@@ -180,6 +178,7 @@ abstract class ApiPlatformTestCase extends ApiPlatformBaseTestCase
     public function testThrowErrorWhenDataAreInvalid(): void
     {
         //TODO: this is not okay... try catch maybe... not sure
+        /** @noinspection PhpInternalEntityUsedInspection */
         static::$client->getKernelBrowser()->catchExceptions(false);
         $this->expectException(\Exception::class); // TODO: MethodNotAllowedHttpException::class
         $this->request(static::RESOURCE_URI, 'POST', $this->getInvalidTestEntity());
@@ -189,10 +188,11 @@ abstract class ApiPlatformTestCase extends ApiPlatformBaseTestCase
 
     //</editor-fold>
 
-    //<editor-fold desc="'*** Deprecated on v1.0.0 ***'">
+    //<editor-fold desc="'*** Deprecated on v0.3.0 -> will be removed with the next version ***'">
 
     /**
-     * Deprecated on v1.0.0 - renamed
+     * Deprecated on v0.3.0 - renamed
+     *  -> will be removed with the next version
      * @return array
      * @throws TransportExceptionInterface
      * @deprecated use getResponseAsJson instead
@@ -203,7 +203,8 @@ abstract class ApiPlatformTestCase extends ApiPlatformBaseTestCase
     }
 
     /**
-     * Deprecated on v1.0.0 - non-static
+     * Deprecated on v0.3.0 - non-static
+     *  -> will be removed with the next version
      * @param mixed|null $content
      * @return string|null $json
      * @deprecated use non-static serializeToJson with serializeContext instead
@@ -222,7 +223,8 @@ abstract class ApiPlatformTestCase extends ApiPlatformBaseTestCase
     }
 
     /**
-     * Deprecated on v1.0.0 - renamed
+     * Deprecated on v0.3.0 - renamed
+     *  -> will be removed with the next version
      * @return object
      * @deprecated use getTestEntity instead
      */
@@ -232,7 +234,8 @@ abstract class ApiPlatformTestCase extends ApiPlatformBaseTestCase
     }
 
     /**
-     * Deprecated on v1.0.0 - renamed
+     * Deprecated on v0.3.0 - renamed
+     *  -> will be removed with the next version
      * @return void
      * @throws TransportExceptionInterface
      * @deprecated use testReadAResourceCollection instead
@@ -243,8 +246,10 @@ abstract class ApiPlatformTestCase extends ApiPlatformBaseTestCase
     }
 
     /**
-     * Deprecated on v1.0.0 - renamed
+     * Deprecated on v0.3.0 - renamed
+     *  -> will be removed with the next version
      * @return void
+     * @throws DecodingExceptionInterface
      * @throws TransportExceptionInterface
      * @deprecated use testReadResource instead
      */
@@ -254,7 +259,8 @@ abstract class ApiPlatformTestCase extends ApiPlatformBaseTestCase
     }
 
     /**
-     * Deprecated on v1.0.0
+     * Deprecated on v0.3.0
+     *  -> will be removed with the next version
      * @return void
      * @throws TransportExceptionInterface
      * @deprecated use assertTimestampable instead
@@ -270,7 +276,8 @@ abstract class ApiPlatformTestCase extends ApiPlatformBaseTestCase
     }
 
     /**
-     * Deprecated on v1.0.0 - not needed anymore
+     * Deprecated on v0.3.0 - not needed anymore
+     *  -> will be removed with the next version
      * @param \ReflectionProperty $reflectionProperty
      * @return bool
      * @deprecated not needed anymore
@@ -296,7 +303,8 @@ abstract class ApiPlatformTestCase extends ApiPlatformBaseTestCase
     }
 
     /**
-     * Deprecated on v1.0.0 - not needed anymore
+     * Deprecated on v0.3.0 - not needed anymore
+     *  -> will be removed with the next version
      * @param \ReflectionProperty $reflectionProperty
      * @return ?string
      * @deprecated not needed anymore
@@ -318,7 +326,8 @@ abstract class ApiPlatformTestCase extends ApiPlatformBaseTestCase
     }
 
     /**
-     * Deprecated on v1.0.0 - not needed anymore
+     * Deprecated on v0.3.0 - not needed anymore
+     *  -> will be removed with the next version
      * @param $newValue
      * @param $oldValue
      * @deprecated not needed anymore
@@ -329,10 +338,12 @@ abstract class ApiPlatformTestCase extends ApiPlatformBaseTestCase
     }
 
     /**
-     * Deprecated on v1.0.0 - not needed anymore
+     * Deprecated on v0.3.0 - not needed anymore
+     *  -> will be removed with the next version
      * @param object $transmittedData
      * @param array $jsonResponse
      * @throws \ReflectionException
+     * @throws \Exception
      * @deprecated not needed anymore
      */
     protected function assertCreateSuccess(object $transmittedData, array $jsonResponse): void
@@ -358,6 +369,7 @@ abstract class ApiPlatformTestCase extends ApiPlatformBaseTestCase
             $this->fail('Failed due to ReflectionException');
         }
         foreach ($reflectionClass->getProperties() as $reflectionProperty) {
+            /** @noinspection PhpDeprecationInspection */
             if (!$this->isPropertyReadable($reflectionProperty)) {
                 continue;
             }
@@ -376,6 +388,7 @@ abstract class ApiPlatformTestCase extends ApiPlatformBaseTestCase
                 continue;
             }
 
+            /** @noinspection PhpDeprecationInspection */
             $dataType = $this->getPropertyType($reflectionProperty);
             if (in_array($dataType, array_keys($getTypeMapping), true)) {
                 if ($jsonResponse[$reflectionProperty->name] !== null) {
@@ -413,24 +426,27 @@ abstract class ApiPlatformTestCase extends ApiPlatformBaseTestCase
     }
 
     /**
-     * Deprecated on v1.0.0 - not needed anymore
+     * Deprecated on v0.3.0 - renamed
+     *  -> will be removed with the next version
      * @param int $allowedTimeDifferenceInSeconds
      * @throws TransportExceptionInterface
-     * @deprecated not needed anymore
+     * @deprecated renamed
      */
     protected function assertTimestampsForCreate(int $allowedTimeDifferenceInSeconds = 120)
     {
-        $this->assertCreateAResourceTimestamps();
+        $this->assertCreateAResourceTimestamps($allowedTimeDifferenceInSeconds);
     }
 
     /**
-     * Deprecated on v1.0.0 - not needed anymore
+     * Deprecated on v0.3.0 - not needed anymore
+     *  -> will be removed with the next version
      * @return void
      * @throws TransportExceptionInterface
      * @deprecated not needed anymore
      */
-    protected function assertHasId()
+    protected function assertHasId(): void
     {
+        /** @noinspection PhpDeprecationInspection */
         $json = $this->getJson();
         $this->assertArrayHasKey('id', $json);
         $this->assertIsInt($json['id']);
@@ -438,20 +454,25 @@ abstract class ApiPlatformTestCase extends ApiPlatformBaseTestCase
     }
 
     /**
-     * Deprecated on v1.0.0 - not needed anymore
+     * Deprecated on v0.3.0 - not needed anymore
+     *  -> will be removed with the next version
      * @var KernelBrowser
      * @deprecated its internal via the http client .... dont use it?!
      */
     static KernelBrowser $kernelBrowser;
 
+    // TODO: Remove next version
     public function setUp(): void
     {
         parent::setUp();
-        self::$kernelBrowser = self::$client->getKernelBrowser(); // TODO: Remove next version
+        /** @noinspection PhpDeprecationInspection */
+        /** @noinspection PhpInternalEntityUsedInspection */
+        self::$kernelBrowser = self::$client->getKernelBrowser();
     }
 
     /**
-     * Deprecated on v1.0.0 - renamed and modified
+     * Deprecated on v0.3.0 - renamed and modified
+     *  -> will be removed with the next version
      * Assert that the updatedAt attribute is set and did not take too long
      * @throws \Exception
      * @throws TransportExceptionInterface
