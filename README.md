@@ -6,11 +6,78 @@ You may want to have a look at: https://github.com/epubli/api-platform-traits
 
 ### Usage
 
-Extend either the `OrmApiPlatformTestCase` or `OdmApiPlatformTestCase`.
+If you want a simple CRUD Testing for your entity just extend the ApiPlatformTestCase 
+and override the endpoint and the resource class 
 
+```php
+/** Endpoint to test (override in your testcase) */
+protected const RESOURCE_URI = '/';
+/** Entity class to test (override in your testcase) */
+protected const RESOURCE_CLASS = '';
+```
 
-##### ORM only
-If you need access to the Query Builder call `$this->getQueryBuilder(...)`
+##### ORM only  
+Since v0.3.0 we only support ORM.
 
 ##### ORM Example Test class
-Look at https://bitbucket.org/epubli/epubli4-article/src/master/tests/api/PbookTest.php for an example unit test using this package.
+
+```php
+class ExampleTest extends ApiPlatformTestCase
+{
+
+    protected const RESOURCE_URI = '/api/example/';
+    protected const RESOURCE_CLASS = Example::class;
+
+    protected function getTestEntity(): Example
+    {
+        $example = new Example();
+        $example->setLocale(static::$faker->countryCode());
+        $example->setStandard(false);
+        $example->setTitle(static::$faker->country());
+        return $example;
+    }
+
+}
+
+```
+
+With this setup common CRUD-Tests will be executed.
+
+If you want to adjust the behaviour of some Test-Cases just override the default Test-Case
+
+For e.g.
+```php
+    public function testReadAResourceCollection(): void
+    {
+        parent::testReadAResourceCollection();
+        $this->assertCollectionCount(3);
+    }
+
+    public function testReadAResource(): void
+    {
+        parent::testReadAResource();
+        $this->assertResourcePropertyCount(10);
+    }
+```
+
+During the testing the entities get serialized by the symfony serializer.
+This can serialize attributes you don't want to compare, especially if you have circular references.
+
+For this case you can provide a list of ignored attributes. These will be skipped during serialization.
+
+```php
+    protected function getIgnoredAttributes(): array
+    {
+        return ['children'];
+    }
+```
+
+If you do not have all CRUD Operations available you can override the unsupported test with a route not available test to ensure this.
+
+```php
+    public function testCreateAResource(): void
+    {
+        $this->testThrowErrorWhenRouteIsForbidden();
+        parent::testCreateAResource();
+    }
+```
